@@ -31,7 +31,7 @@ export default function HomePage() {
 
   const loadData = async () => {
     try {
-      const res = await fetch('/api/clippers', { cache: 'no-store' });
+      const res = await fetch(`/api/clippers?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setClippers(data.clippers || []);
@@ -60,7 +60,7 @@ export default function HomePage() {
 
   const loadMaintenance = async () => {
     try {
-      const res = await fetch('/api/maintenance', { cache: 'no-store' });
+      const res = await fetch(`/api/maintenance?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success && data.maintenance) {
         setMaintenance({
@@ -69,19 +69,19 @@ export default function HomePage() {
         });
       }
     } catch {
-      setMaintenance({ enabled: false, endsAt: null });
+      return;
     }
   };
 
   const loadAnnouncement = async () => {
     try {
-      const res = await fetch('/api/announcement', { cache: 'no-store' });
+      const res = await fetch(`/api/announcement?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setAnnouncement(data.announcement?.message || '');
       }
     } catch {
-      setAnnouncement('');
+      return;
     }
   };
 

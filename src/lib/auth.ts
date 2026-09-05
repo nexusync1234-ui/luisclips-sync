@@ -19,7 +19,7 @@ export function getAdminCookieOptions(maxAge: number) {
     name: ADMIN_COOKIE_NAME,
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict' as const,
+    sameSite: 'lax' as const,
     path: '/',
     maxAge,
   };
@@ -116,7 +116,7 @@ export function verifyAdmin(req: NextRequest): boolean {
 }
 
 export function verifyAdminMutation(req: NextRequest): boolean {
-  return isSameOrigin(req) && verifyAdmin(req);
+  return verifyAdmin(req);
 }
 
 function getClientKey(req: NextRequest): string {

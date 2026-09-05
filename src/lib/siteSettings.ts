@@ -54,5 +54,6 @@ export async function setSetting(key: string, value: string): Promise<void> {
   } catch (err) {
     tableReady = false;
     console.warn('Could not write site setting to Neon:', err);
+    throw err;
   }
 }
