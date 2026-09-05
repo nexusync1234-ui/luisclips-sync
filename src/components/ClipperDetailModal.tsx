@@ -31,7 +31,7 @@ export default function ClipperDetailModal({
   const clips = clipper.clips || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150">
       <div className="matte-panel rounded-2xl max-w-3xl w-full border border-zinc-800 shadow-2xl relative bg-[#0d0d10] max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-zinc-800 flex items-center justify-between bg-[#111114]">

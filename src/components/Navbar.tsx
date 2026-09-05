@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Megaphone, RefreshCw, Tv } from 'lucide-react';
+import { RefreshCw, Tv } from 'lucide-react';
 
 interface NavbarProps {
   onSyncAll: () => void;
@@ -81,14 +81,6 @@ export default function Navbar({
           </button>
         </div>
       </div>
-      {announcement ? (
-        <div className="border-t border-zinc-800/80 bg-zinc-900/80">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-center gap-2 text-xs sm:text-sm text-zinc-200">
-            <Megaphone className="w-3.5 h-3.5 text-white flex-shrink-0" />
-            <p className="font-semibold truncate">{announcement}</p>
-          </div>
-        </div>
-      ) : null}
     </header>
   );
 }

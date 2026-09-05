@@ -82,7 +82,7 @@ export default function StreamModeModal({
   const third = sorted[2];
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#070709] text-white flex flex-col overflow-hidden animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] bg-[#070709] text-white flex flex-col overflow-hidden animate-in fade-in duration-200">
       {/* 1. FIXED TOPBAR (Always visible, never scrolls away) */}
       <header className="flex-shrink-0 h-16 px-4 sm:px-6 bg-[#0c0c10] border-b border-zinc-800/80 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
