@@ -159,18 +159,44 @@ export async function saveClipperData(
   const clipperId = clipperData.id || `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const createdAt = new Date().toISOString();
 
-  const preparedClips = clips.map((cl) => ({
-    ...cl,
-    clipperId,
-    clipperUsername: clipperData.username,
-    clipperNickname: clipperData.nickname,
-    clipperAvatar: clipperData.avatar,
-  }));
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  // If clips are provided, calculate monthlyViews STRICTLY as the sum of September 2026 clips!
+  let exactMonthlyViews = clipperData.monthlyViews;
+  let exactAllTimeViews = clipperData.allTimeViews;
+
+  if (clips.length > 0) {
+    exactMonthlyViews = clips
+      .filter((cl) => {
+        const d = parseDateSafe(cl.uploadDate);
+        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+      })
+      .reduce((acc, cl) => acc + cl.viewCount, 0);
+
+    exactAllTimeViews = clips.reduce((acc, cl) => acc + cl.viewCount, 0);
+  }
+
+  const preparedClips = clips.map((cl) => {
+    const d = parseDateSafe(cl.uploadDate);
+    const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    return {
+      ...cl,
+      clipperId,
+      clipperUsername: clipperData.username,
+      clipperNickname: clipperData.nickname,
+      clipperAvatar: clipperData.avatar,
+      isCurrentMonth,
+    };
+  });
 
   const fullClipper: Clipper = {
     ...clipperData,
     id: clipperId,
     createdAt,
+    monthlyViews: exactMonthlyViews,
+    allTimeViews: exactAllTimeViews,
     clips: preparedClips,
   };
 
@@ -189,8 +215,8 @@ export async function saveClipperData(
           followers: clipperData.followers,
           totalLikes: clipperData.totalLikes,
           videoCount: clipperData.videoCount,
-          monthlyViews: clipperData.monthlyViews,
-          allTimeViews: clipperData.allTimeViews,
+          monthlyViews: exactMonthlyViews,
+          allTimeViews: exactAllTimeViews,
           lastSyncedAt: new Date(clipperData.lastSyncedAt),
         },
         update: {
@@ -201,8 +227,12 @@ export async function saveClipperData(
           followers: clipperData.followers,
           totalLikes: clipperData.totalLikes,
           videoCount: clipperData.videoCount,
-          monthlyViews: clipperData.monthlyViews,
-          allTimeViews: clipperData.allTimeViews,
+          ...(clips.length > 0
+            ? {
+                monthlyViews: exactMonthlyViews,
+                allTimeViews: exactAllTimeViews,
+              }
+            : {}),
           lastSyncedAt: new Date(clipperData.lastSyncedAt),
         },
       });

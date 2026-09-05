@@ -78,11 +78,6 @@ export async function fetchTikTokNative(username: string): Promise<ScraperOutput
           const followers = Number(st.followerCount || 0);
           const totalLikes = Number(st.heartCount || st.heart || 0);
           const videoCount = Number(st.videoCount || 0);
-
-          // Estimate views based on TikTok engagement ratio (1 like ~= 12-15 views)
-          const allTimeViews = totalLikes > 0 ? totalLikes * 12 : Math.max(videoCount * 600, 100);
-          const monthlyViews = Math.round(allTimeViews * 0.45);
-
           const now = new Date();
 
           return {
@@ -96,23 +91,9 @@ export async function fetchTikTokNative(username: string): Promise<ScraperOutput
               videoCount,
               secUid: u.secUid || '',
             },
-            videos: [
-              {
-                id: `clip_${Date.now()}`,
-                title: `Destaque — @${u.uniqueId || cleanUsername}`,
-                url: `https://www.tiktok.com/@${cleanUsername}`,
-                coverUrl: u.avatarLarger || u.avatarMedium || '',
-                viewCount: monthlyViews,
-                likeCount: totalLikes,
-                commentCount: 0,
-                repostCount: 0,
-                duration: 30,
-                uploadDate: now.toISOString(),
-                isCurrentMonth: true,
-              },
-            ],
-            monthlyViews,
-            allTimeViews,
+            videos: [],
+            monthlyViews: 0,
+            allTimeViews: 0,
             syncedAt: now.toISOString(),
           };
         }
@@ -135,8 +116,6 @@ export async function fetchTikTokNative(username: string): Promise<ScraperOutput
           const followers = Number(statsModule?.followerCount || 0);
           const totalLikes = Number(statsModule?.heartCount || statsModule?.heart || 0);
           const videoCount = Number(statsModule?.videoCount || 0);
-          const allTimeViews = totalLikes > 0 ? totalLikes * 12 : Math.max(videoCount * 600, 100);
-          const monthlyViews = Math.round(allTimeViews * 0.45);
           const now = new Date();
 
           return {
@@ -150,23 +129,9 @@ export async function fetchTikTokNative(username: string): Promise<ScraperOutput
               videoCount,
               secUid: (userModule as any).secUid || '',
             },
-            videos: [
-              {
-                id: `clip_${Date.now()}`,
-                title: `Destaque — @${cleanUsername}`,
-                url: `https://www.tiktok.com/@${cleanUsername}`,
-                coverUrl: (userModule as any).avatarLarger || '',
-                viewCount: monthlyViews,
-                likeCount: totalLikes,
-                commentCount: 0,
-                repostCount: 0,
-                duration: 30,
-                uploadDate: now.toISOString(),
-                isCurrentMonth: true,
-              },
-            ],
-            monthlyViews,
-            allTimeViews,
+            videos: [],
+            monthlyViews: 0,
+            allTimeViews: 0,
             syncedAt: now.toISOString(),
           };
         }
