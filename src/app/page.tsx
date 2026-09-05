@@ -89,16 +89,32 @@ export default function HomePage() {
     loadData();
     loadMaintenance();
     loadAnnouncement();
-    const interval = setInterval(() => {
+
+    // Fast status check every 5s for announcements and maintenance
+    const statusInterval = setInterval(() => {
       loadMaintenance();
       loadAnnouncement();
     }, 5000);
-    return () => clearInterval(interval);
+
+    // Auto-refresh views & leaderboard data automatically every 30s
+    const dataInterval = setInterval(() => {
+      loadData();
+    }, 30000);
+
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(dataInterval);
+    };
   }, []);
 
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
+      await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      }).catch(() => {});
       await loadData();
     } catch (err) {
       console.error('Error refreshing clippers:', err);

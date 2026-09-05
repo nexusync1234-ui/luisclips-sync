@@ -68,14 +68,16 @@ export default function Navbar({
             <span className="hidden sm:inline">Modo Stream</span> (OBS)
           </button>
 
-          {/* Sync All Button */}
+          {/* Sync All Button with Auto-Sync Status */}
           <button
             onClick={onSyncAll}
             disabled={isSyncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-all disabled:opacity-50"
+            title="Auto-Sync ativo (atualização automática em direto). Clique para sincronizar agora."
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-all disabled:opacity-50 group"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-zinc-400 ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-zinc-400 group-hover:text-white ${isSyncing ? 'animate-spin text-white' : ''}`} />
             <span className="hidden sm:inline">Atualizar</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" title="Auto-Sync ativo" />
           </button>
         </div>
       </div>
