@@ -63,15 +63,15 @@ function normalizeState(state: MaintenanceState): MaintenanceState {
 }
 
 export async function getMaintenanceState(): Promise<MaintenanceState> {
-  const fromDb = parseState(await getSetting(SETTING_KEY));
-  const state = fromDb.enabled || fromDb.endsAt ? fromDb : readFileStore();
-  const normalized = normalizeState(state);
-
-  if (state.enabled && !normalized.enabled) {
-    await setMaintenanceState(false);
-  }
-
-  return normalized;
+  const fromSetting = parseState(await getSetting(SETTING_KEY));
+  const fromFile = readFileStore();
+  const state =
+    fromSetting.enabled || fromSetting.endsAt
+      ? fromSetting
+      : fromFile.enabled || fromFile.endsAt
+        ? fromFile
+        : fromSetting;
+  return normalizeState(state);
 }
 
 export async function setMaintenanceState(

@@ -6,23 +6,13 @@ import { Megaphone } from 'lucide-react';
 import MaintenanceOverlay from '@/components/MaintenanceOverlay';
 import { MaintenanceState } from '@/lib/types';
 
-interface SiteAlertsProps {
-  maintenance: MaintenanceState;
-  announcement: string;
-}
-
-export default function SiteAlerts({
-  maintenance: initialMaintenance,
-  announcement: initialAnnouncement,
-}: SiteAlertsProps) {
+export default function SiteAlerts() {
   const pathname = usePathname();
-  const [maintenance, setMaintenance] = useState(initialMaintenance);
-  const [announcement, setAnnouncement] = useState(initialAnnouncement);
-
-  useEffect(() => {
-    setMaintenance(initialMaintenance);
-    setAnnouncement(initialAnnouncement);
-  }, [initialMaintenance, initialAnnouncement]);
+  const [maintenance, setMaintenance] = useState<MaintenanceState>({
+    enabled: false,
+    endsAt: null,
+  });
+  const [announcement, setAnnouncement] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -36,8 +26,8 @@ export default function SiteAlerts({
             endsAt: data.maintenance.endsAt || null,
           });
         }
-        if (data.announcement) {
-          setAnnouncement(data.announcement.message || '');
+        if (typeof data.announcement?.message === 'string') {
+          setAnnouncement(data.announcement.message);
         }
       } catch {
         return;
@@ -45,7 +35,7 @@ export default function SiteAlerts({
     };
 
     load();
-    const interval = setInterval(load, 4000);
+    const interval = setInterval(load, 3000);
     return () => clearInterval(interval);
   }, []);
 
