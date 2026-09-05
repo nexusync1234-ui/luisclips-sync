@@ -3,7 +3,10 @@ import { getStoredClippers, saveClipperData, isNeonConfigured } from '@/lib/db';
 import { fetchClipperData } from '@/lib/scraper';
 import { consumeMutationAttempt, verifyAdminMutation } from '@/lib/auth';
 import { DashboardStats } from '@/lib/types';
+import { getMaintenanceState } from '@/lib/maintenance';
+import { getAnnouncement } from '@/lib/announcement';
 
+export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function GET(req: NextRequest) {
@@ -51,6 +54,8 @@ export async function GET(req: NextRequest) {
       clippers: sortedClippers,
       stats,
       isNeonConnected: isNeonConfigured(),
+      maintenance: await getMaintenanceState(),
+      announcement: await getAnnouncement(),
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

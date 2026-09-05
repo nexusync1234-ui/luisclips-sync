@@ -31,16 +31,25 @@ export default function HomePage() {
 
   const loadData = async () => {
     try {
-      const res = await fetch('/api/clippers');
+      const res = await fetch('/api/clippers', { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setClippers(data.clippers || []);
         setStats(data.stats || null);
         setIsNeonConnected(Boolean(data.isNeonConnected));
 
-        // Aggregate clips
         const allClips = (data.clippers || []).flatMap((c: Clipper) => c.clips || []);
         setClips(allClips);
+
+        if (data.maintenance) {
+          setMaintenance({
+            enabled: Boolean(data.maintenance.enabled),
+            endsAt: data.maintenance.endsAt || null,
+          });
+        }
+        if (data.announcement) {
+          setAnnouncement(data.announcement.message || '');
+        }
       }
     } catch (err) {
       console.error('Error fetching clippers data:', err);
