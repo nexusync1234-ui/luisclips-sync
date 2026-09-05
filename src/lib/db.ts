@@ -26,21 +26,20 @@ function parseDateSafe(raw?: string | Date | null): Date {
 }
 
 function ensureDataDir(): DatabaseStore {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  if (!fs.existsSync(DATA_FILE)) {
-    const initial: DatabaseStore = {
-      clippers: [],
-      clips: [],
-      lastUpdated: new Date().toISOString(),
-    };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(initial, null, 2), 'utf-8');
-    return initial;
-  }
-
   try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+
+    if (!fs.existsSync(DATA_FILE)) {
+      const initial: DatabaseStore = {
+        clippers: [],
+        clips: [],
+        lastUpdated: new Date().toISOString(),
+      };
+      return initial;
+    }
+
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
     return JSON.parse(raw);
   } catch {
@@ -53,9 +52,14 @@ function ensureDataDir(): DatabaseStore {
 }
 
 function saveLocalStore(store: DatabaseStore) {
-  ensureDataDir();
-  store.lastUpdated = new Date().toISOString();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf-8');
+  try {
+    ensureDataDir();
+    store.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf-8');
+  } catch (err) {
+    // Silently ignore on read-only environments (Vercel Lambda / Serverless)
+    console.warn('Skipping local file write in read-only environment');
+  }
 }
 
 export function isNeonConfigured(): boolean {
@@ -117,21 +121,20 @@ export async function getStoredClippers(): Promise<{ clippers: Clipper[]; clips:
   }
 
   // Fallback to local JSON store
-  const store = ensureDataDir();
-  return { clippers: store.clippers, clips: store.clips };
+  try {
+    const store = ensureDataDir();
+    return { clippers: store.clippers, clips: store.clips };
+  } catch {
+    return { clippers: [], clips: [] };
+  }
 }
 
 export async function saveClipperData(
   clipperData: Omit<Clipper, 'id' | 'createdAt'> & { id?: string },
   clips: Clip[]
 ): Promise<Clipper> {
-  const store = ensureDataDir();
-  const existingIdx = store.clippers.findIndex(
-    (c) => c.username.toLowerCase() === clipperData.username.toLowerCase()
-  );
-
-  const clipperId = existingIdx >= 0 ? store.clippers[existingIdx].id : `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  const createdAt = existingIdx >= 0 ? store.clippers[existingIdx].createdAt : new Date().toISOString();
+  const clipperId = clipperData.id || `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const createdAt = new Date().toISOString();
 
   const preparedClips = clips.map((cl) => ({
     ...cl,
@@ -148,21 +151,10 @@ export async function saveClipperData(
     clips: preparedClips,
   };
 
-  // Update local store
-  if (existingIdx >= 0) {
-    store.clippers[existingIdx] = fullClipper;
-  } else {
-    store.clippers.push(fullClipper);
-  }
-
-  // Remove previous clips of this user and append new
-  store.clips = store.clips.filter((c) => c.clipperId !== clipperId).concat(preparedClips);
-  saveLocalStore(store);
-
-  // Sync to Neon if configured
+  // 1. Primary: Save directly to Neon PostgreSQL cloud database
   if (isNeonConfigured()) {
     try {
-      await prisma.clipper.upsert({
+      const upserted = await prisma.clipper.upsert({
         where: { username: clipperData.username },
         create: {
           id: clipperId,
@@ -198,7 +190,7 @@ export async function saveClipperData(
           where: { id: clip.id },
           create: {
             id: clip.id,
-            clipperId,
+            clipperId: upserted.id,
             title: clip.title,
             url: clip.url,
             coverUrl: clip.coverUrl,
@@ -222,37 +214,66 @@ export async function saveClipperData(
           },
         });
       }
-    } catch (err) {
-      console.warn('Neon sync warning (will continue with local storage):', err);
+
+      return fullClipper;
+    } catch (err: any) {
+      console.error('Neon sync error:', err);
     }
+  }
+
+  // 2. Fallback: Save to local JSON store (guarded against EROFS on Vercel)
+  try {
+    const store = ensureDataDir();
+    const existingIdx = store.clippers.findIndex(
+      (c) => c.username.toLowerCase() === clipperData.username.toLowerCase()
+    );
+
+    if (existingIdx >= 0) {
+      store.clippers[existingIdx] = fullClipper;
+    } else {
+      store.clippers.push(fullClipper);
+    }
+
+    store.clips = store.clips.filter((c) => c.clipperId !== clipperId).concat(preparedClips);
+    saveLocalStore(store);
+  } catch (fsErr) {
+    console.warn('Local FS storage skipped:', fsErr);
   }
 
   return fullClipper;
 }
 
 export async function deleteClipper(username: string): Promise<boolean> {
-  const store = ensureDataDir();
-  const target = store.clippers.find(
-    (c) => c.username.toLowerCase() === username.toLowerCase()
-  );
-
-  if (!target) return false;
-
-  store.clippers = store.clippers.filter(
-    (c) => c.username.toLowerCase() !== username.toLowerCase()
-  );
-  store.clips = store.clips.filter((c) => c.clipperId !== target.id);
-  saveLocalStore(store);
-
+  // 1. Primary: Delete from Neon PostgreSQL
   if (isNeonConfigured()) {
     try {
       await prisma.clipper.delete({
         where: { username },
       });
+      return true;
     } catch (err) {
       console.warn('Error deleting from Neon:', err);
     }
   }
 
-  return true;
+  // 2. Fallback: Delete from local store (guarded against EROFS)
+  try {
+    const store = ensureDataDir();
+    const target = store.clippers.find(
+      (c) => c.username.toLowerCase() === username.toLowerCase()
+    );
+
+    if (target) {
+      store.clippers = store.clippers.filter(
+        (c) => c.username.toLowerCase() !== username.toLowerCase()
+      );
+      store.clips = store.clips.filter((c) => c.clipperId !== target.id);
+      saveLocalStore(store);
+      return true;
+    }
+  } catch (fsErr) {
+    console.warn('Local FS delete skipped:', fsErr);
+  }
+
+  return false;
 }
