@@ -1,0 +1,258 @@
+import fs from 'fs';
+import path from 'path';
+import prisma from './prisma';
+import { Clipper, Clip } from './types';
+
+const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_FILE = path.join(DATA_DIR, 'db.json');
+
+interface DatabaseStore {
+  clippers: Clipper[];
+  clips: Clip[];
+  lastUpdated: string;
+}
+
+function parseDateSafe(raw?: string | Date | null): Date {
+  if (!raw) return new Date();
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? new Date() : raw;
+  if (typeof raw === 'string' && /^\d{8}$/.test(raw)) {
+    const y = parseInt(raw.slice(0, 4), 10);
+    const m = parseInt(raw.slice(4, 6), 10) - 1;
+    const d = parseInt(raw.slice(6, 8), 10);
+    return new Date(Date.UTC(y, m, d));
+  }
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
+function ensureDataDir(): DatabaseStore {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  if (!fs.existsSync(DATA_FILE)) {
+    const initial: DatabaseStore = {
+      clippers: [],
+      clips: [],
+      lastUpdated: new Date().toISOString(),
+    };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(initial, null, 2), 'utf-8');
+    return initial;
+  }
+
+  try {
+    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return {
+      clippers: [],
+      clips: [],
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+}
+
+function saveLocalStore(store: DatabaseStore) {
+  ensureDataDir();
+  store.lastUpdated = new Date().toISOString();
+  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf-8');
+}
+
+export function isNeonConfigured(): boolean {
+  const url = process.env.DATABASE_URL;
+  return Boolean(url && url.startsWith('postgres') && !url.includes('YOUR_PASSWORD') && !url.includes('ep-sample'));
+}
+
+export async function getStoredClippers(): Promise<{ clippers: Clipper[]; clips: Clip[] }> {
+  // If Neon is configured, attempt to query Prisma
+  if (isNeonConfigured()) {
+    try {
+      const clippers = await prisma.clipper.findMany({
+        include: {
+          clips: {
+            orderBy: { viewCount: 'desc' },
+          },
+        },
+        orderBy: { monthlyViews: 'desc' },
+      });
+
+      const formattedClippers: Clipper[] = clippers.map((c) => ({
+        id: c.id,
+        username: c.username,
+        nickname: c.nickname,
+        avatar: c.avatar || '',
+        bio: c.bio || '',
+        secUid: c.secUid || '',
+        followers: c.followers,
+        totalLikes: c.totalLikes,
+        videoCount: c.videoCount,
+        monthlyViews: c.monthlyViews,
+        allTimeViews: c.allTimeViews,
+        lastSyncedAt: c.lastSyncedAt.toISOString(),
+        createdAt: c.createdAt.toISOString(),
+        clips: c.clips.map((clip) => ({
+          id: clip.id,
+          clipperId: clip.clipperId,
+          clipperUsername: c.username,
+          clipperNickname: c.nickname,
+          clipperAvatar: c.avatar || '',
+          title: clip.title,
+          url: clip.url,
+          coverUrl: clip.coverUrl || '',
+          viewCount: clip.viewCount,
+          likeCount: clip.likeCount,
+          commentCount: clip.commentCount,
+          repostCount: clip.repostCount,
+          duration: clip.duration,
+          uploadDate: clip.uploadDate.toISOString(),
+          isCurrentMonth: clip.isCurrentMonth,
+        })),
+      }));
+
+      const allClips = formattedClippers.flatMap((c) => c.clips || []);
+      return { clippers: formattedClippers, clips: allClips };
+    } catch (err) {
+      console.warn('Could not read from Neon PostgreSQL, falling back to local store:', err);
+    }
+  }
+
+  // Fallback to local JSON store
+  const store = ensureDataDir();
+  return { clippers: store.clippers, clips: store.clips };
+}
+
+export async function saveClipperData(
+  clipperData: Omit<Clipper, 'id' | 'createdAt'> & { id?: string },
+  clips: Clip[]
+): Promise<Clipper> {
+  const store = ensureDataDir();
+  const existingIdx = store.clippers.findIndex(
+    (c) => c.username.toLowerCase() === clipperData.username.toLowerCase()
+  );
+
+  const clipperId = existingIdx >= 0 ? store.clippers[existingIdx].id : `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const createdAt = existingIdx >= 0 ? store.clippers[existingIdx].createdAt : new Date().toISOString();
+
+  const preparedClips = clips.map((cl) => ({
+    ...cl,
+    clipperId,
+    clipperUsername: clipperData.username,
+    clipperNickname: clipperData.nickname,
+    clipperAvatar: clipperData.avatar,
+  }));
+
+  const fullClipper: Clipper = {
+    ...clipperData,
+    id: clipperId,
+    createdAt,
+    clips: preparedClips,
+  };
+
+  // Update local store
+  if (existingIdx >= 0) {
+    store.clippers[existingIdx] = fullClipper;
+  } else {
+    store.clippers.push(fullClipper);
+  }
+
+  // Remove previous clips of this user and append new
+  store.clips = store.clips.filter((c) => c.clipperId !== clipperId).concat(preparedClips);
+  saveLocalStore(store);
+
+  // Sync to Neon if configured
+  if (isNeonConfigured()) {
+    try {
+      await prisma.clipper.upsert({
+        where: { username: clipperData.username },
+        create: {
+          id: clipperId,
+          username: clipperData.username,
+          nickname: clipperData.nickname,
+          avatar: clipperData.avatar,
+          bio: clipperData.bio,
+          secUid: clipperData.secUid,
+          followers: clipperData.followers,
+          totalLikes: clipperData.totalLikes,
+          videoCount: clipperData.videoCount,
+          monthlyViews: clipperData.monthlyViews,
+          allTimeViews: clipperData.allTimeViews,
+          lastSyncedAt: new Date(clipperData.lastSyncedAt),
+        },
+        update: {
+          nickname: clipperData.nickname,
+          avatar: clipperData.avatar,
+          bio: clipperData.bio,
+          secUid: clipperData.secUid,
+          followers: clipperData.followers,
+          totalLikes: clipperData.totalLikes,
+          videoCount: clipperData.videoCount,
+          monthlyViews: clipperData.monthlyViews,
+          allTimeViews: clipperData.allTimeViews,
+          lastSyncedAt: new Date(clipperData.lastSyncedAt),
+        },
+      });
+
+      // Upsert clips
+      for (const clip of clips) {
+        await prisma.clip.upsert({
+          where: { id: clip.id },
+          create: {
+            id: clip.id,
+            clipperId,
+            title: clip.title,
+            url: clip.url,
+            coverUrl: clip.coverUrl,
+            viewCount: clip.viewCount,
+            likeCount: clip.likeCount,
+            commentCount: clip.commentCount,
+            repostCount: clip.repostCount,
+            duration: clip.duration,
+            uploadDate: parseDateSafe(clip.uploadDate),
+            isCurrentMonth: clip.isCurrentMonth,
+          },
+          update: {
+            title: clip.title,
+            coverUrl: clip.coverUrl,
+            viewCount: clip.viewCount,
+            likeCount: clip.likeCount,
+            commentCount: clip.commentCount,
+            repostCount: clip.repostCount,
+            uploadDate: parseDateSafe(clip.uploadDate),
+            isCurrentMonth: clip.isCurrentMonth,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn('Neon sync warning (will continue with local storage):', err);
+    }
+  }
+
+  return fullClipper;
+}
+
+export async function deleteClipper(username: string): Promise<boolean> {
+  const store = ensureDataDir();
+  const target = store.clippers.find(
+    (c) => c.username.toLowerCase() === username.toLowerCase()
+  );
+
+  if (!target) return false;
+
+  store.clippers = store.clippers.filter(
+    (c) => c.username.toLowerCase() !== username.toLowerCase()
+  );
+  store.clips = store.clips.filter((c) => c.clipperId !== target.id);
+  saveLocalStore(store);
+
+  if (isNeonConfigured()) {
+    try {
+      await prisma.clipper.delete({
+        where: { username },
+      });
+    } catch (err) {
+      console.warn('Error deleting from Neon:', err);
+    }
+  }
+
+  return true;
+}
