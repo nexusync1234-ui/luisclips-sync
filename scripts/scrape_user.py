@@ -56,7 +56,7 @@ def scrape_profile(username):
         
     return user_data
 
-def scrape_videos(username, limit=12):
+def scrape_videos(username, limit=50):
     videos = []
     
     # Path to local yt-dlp in .venv
@@ -78,7 +78,7 @@ def scrape_videos(username, limit=12):
     current_year_month = f"{now.year}{now.month:02d}"
     
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
         for line in res.stdout.strip().split("\n"):
             line = line.strip()
             if not line:
@@ -140,15 +140,9 @@ if __name__ == "__main__":
     profile = scrape_profile(target_username)
     videos = scrape_videos(target_username)
     
-    # Calculate monthly views and all-time tracked views
+    # Calculate monthly views and all-time tracked views strictly from real clips
     monthly_views = sum(v["viewCount"] for v in videos if v["isCurrentMonth"])
     all_time_views = sum(v["viewCount"] for v in videos)
-    
-    # If videos returned 0 views because of private/restricted or empty,
-    # estimate views based on totalLikes (standard TikTok ratio is ~10-15 views per like)
-    if all_time_views == 0 and profile["totalLikes"] > 0:
-        all_time_views = profile["totalLikes"] * 10
-        monthly_views = int(all_time_views * 0.4) # estimated 40% in current period
         
     output = {
         "profile": profile,

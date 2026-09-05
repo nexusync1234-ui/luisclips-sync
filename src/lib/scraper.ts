@@ -183,7 +183,7 @@ export async function fetchClipperData(username: string): Promise<ScraperOutput>
         const timer = setTimeout(() => {
           proc.kill();
           reject(new Error('Local python scraper timeout'));
-        }, 12000);
+        }, 30000);
 
         proc.on('close', (code) => {
           clearTimeout(timer);
