@@ -3,10 +3,17 @@ import { consumeMutationAttempt, verifyAdminMutation } from '@/lib/auth';
 import { getAnnouncement, setAnnouncement } from '@/lib/announcement';
 
 export async function GET() {
-  return NextResponse.json({
-    success: true,
-    announcement: getAnnouncement(),
-  });
+  return NextResponse.json(
+    {
+      success: true,
+      announcement: await getAnnouncement(),
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
+    }
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -26,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const announcement = setAnnouncement(body.message);
+    const announcement = await setAnnouncement(body.message);
 
     return NextResponse.json({ success: true, announcement });
   } catch {

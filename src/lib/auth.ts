@@ -78,27 +78,36 @@ function verifySessionToken(token: string): boolean {
   return safeEqual(signature, expected);
 }
 
+function normalizeHost(value: string) {
+  return value.split(',')[0].trim().replace(/:\d+$/, '').toLowerCase();
+}
+
 export function isSameOrigin(req: NextRequest): boolean {
-  const host = req.headers.get('host');
-  if (!host) return false;
+  const allowed = [
+    req.headers.get('x-forwarded-host'),
+    req.headers.get('host'),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeHost);
+
+  if (allowed.length === 0) return false;
 
   const origin = req.headers.get('origin');
-  if (origin) {
-    try {
-      return new URL(origin).host === host;
-    } catch {
-      return false;
-    }
-  }
-
   const referer = req.headers.get('referer');
-  if (!referer) return false;
+  let requestHost = '';
 
   try {
-    return new URL(referer).host === host;
+    if (origin) {
+      requestHost = normalizeHost(new URL(origin).host);
+    } else if (referer) {
+      requestHost = normalizeHost(new URL(referer).host);
+    }
   } catch {
     return false;
   }
+
+  if (!requestHost) return false;
+  return allowed.includes(requestHost);
 }
 
 export function verifyAdmin(req: NextRequest): boolean {

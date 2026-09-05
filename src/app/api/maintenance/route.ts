@@ -3,10 +3,17 @@ import { consumeMutationAttempt, verifyAdminMutation } from '@/lib/auth';
 import { getMaintenanceState, setMaintenanceState } from '@/lib/maintenance';
 
 export async function GET() {
-  return NextResponse.json({
-    success: true,
-    maintenance: getMaintenanceState(),
-  });
+  return NextResponse.json(
+    {
+      success: true,
+      maintenance: await getMaintenanceState(),
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
+    }
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -34,7 +41,7 @@ export async function POST(req: NextRequest) {
         (Number.isFinite(minutes) ? Math.max(minutes, 0) : 0)
     );
 
-    const maintenance = setMaintenanceState(enabled, enabled ? durationMinutes || 30 : undefined);
+    const maintenance = await setMaintenanceState(enabled, enabled ? durationMinutes || 30 : undefined);
 
     return NextResponse.json({ success: true, maintenance });
   } catch {

@@ -65,7 +65,7 @@ export default function AdminPage() {
 
   const loadAnnouncement = async () => {
     try {
-      const res = await fetch('/api/announcement');
+      const res = await fetch('/api/announcement', { cache: 'no-store' });
       const data = await res.json();
       if (data.success && data.announcement) {
         setAnnouncement({
@@ -93,7 +93,7 @@ export default function AdminPage() {
 
   const loadMaintenance = async () => {
     try {
-      const res = await fetch('/api/maintenance');
+      const res = await fetch('/api/maintenance', { cache: 'no-store' });
       const data = await res.json();
       if (data.success && data.maintenance) {
         setMaintenance({

@@ -51,7 +51,7 @@ export default function HomePage() {
 
   const loadMaintenance = async () => {
     try {
-      const res = await fetch('/api/maintenance');
+      const res = await fetch('/api/maintenance', { cache: 'no-store' });
       const data = await res.json();
       if (data.success && data.maintenance) {
         setMaintenance({
@@ -66,7 +66,7 @@ export default function HomePage() {
 
   const loadAnnouncement = async () => {
     try {
-      const res = await fetch('/api/announcement');
+      const res = await fetch('/api/announcement', { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setAnnouncement(data.announcement?.message || '');
@@ -83,7 +83,7 @@ export default function HomePage() {
     const interval = setInterval(() => {
       loadMaintenance();
       loadAnnouncement();
-    }, 15000);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
