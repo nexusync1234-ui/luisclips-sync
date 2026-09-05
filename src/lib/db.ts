@@ -80,38 +80,61 @@ export async function getStoredClippers(): Promise<{ clippers: Clipper[]; clips:
         orderBy: { monthlyViews: 'desc' },
       });
 
-      const formattedClippers: Clipper[] = clippers.map((c) => ({
-        id: c.id,
-        username: c.username,
-        nickname: c.nickname,
-        avatar: c.avatar || '',
-        bio: c.bio || '',
-        secUid: c.secUid || '',
-        followers: c.followers,
-        totalLikes: c.totalLikes,
-        videoCount: c.videoCount,
-        monthlyViews: c.monthlyViews,
-        allTimeViews: c.allTimeViews,
-        lastSyncedAt: c.lastSyncedAt.toISOString(),
-        createdAt: c.createdAt.toISOString(),
-        clips: c.clips.map((clip) => ({
-          id: clip.id,
-          clipperId: clip.clipperId,
-          clipperUsername: c.username,
-          clipperNickname: c.nickname,
-          clipperAvatar: c.avatar || '',
-          title: clip.title,
-          url: clip.url,
-          coverUrl: clip.coverUrl || '',
-          viewCount: clip.viewCount,
-          likeCount: clip.likeCount,
-          commentCount: clip.commentCount,
-          repostCount: clip.repostCount,
-          duration: clip.duration,
-          uploadDate: clip.uploadDate.toISOString(),
-          isCurrentMonth: clip.isCurrentMonth,
-        })),
-      }));
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      const formattedClippers: Clipper[] = clippers.map((c) => {
+        const mappedClips = c.clips.map((clip) => {
+          const d = new Date(clip.uploadDate);
+          // Strictly September 1st onwards for current month!
+          const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+          return {
+            id: clip.id,
+            clipperId: clip.clipperId,
+            clipperUsername: c.username,
+            clipperNickname: c.nickname,
+            clipperAvatar: c.avatar || '',
+            title: clip.title,
+            url: clip.url,
+            coverUrl: clip.coverUrl || '',
+            viewCount: clip.viewCount,
+            likeCount: clip.likeCount,
+            commentCount: clip.commentCount,
+            repostCount: clip.repostCount,
+            duration: clip.duration,
+            uploadDate: clip.uploadDate.toISOString(),
+            isCurrentMonth,
+          };
+        });
+
+        // Sum views STRICTLY for clips uploaded in the current month (>= 01/09)
+        const septViewsSum = mappedClips
+          .filter((cl) => cl.isCurrentMonth)
+          .reduce((acc, cl) => acc + cl.viewCount, 0);
+
+        const totalClipsViewsSum = mappedClips.reduce((acc, cl) => acc + cl.viewCount, 0);
+
+        const monthlyViews = mappedClips.length > 0 ? septViewsSum : c.monthlyViews;
+        const allTimeViews = mappedClips.length > 0 ? Math.max(totalClipsViewsSum, c.allTimeViews) : c.allTimeViews;
+
+        return {
+          id: c.id,
+          username: c.username,
+          nickname: c.nickname,
+          avatar: c.avatar || '',
+          bio: c.bio || '',
+          secUid: c.secUid || '',
+          followers: c.followers,
+          totalLikes: c.totalLikes,
+          videoCount: c.videoCount,
+          monthlyViews,
+          allTimeViews,
+          lastSyncedAt: c.lastSyncedAt.toISOString(),
+          createdAt: c.createdAt.toISOString(),
+          clips: mappedClips,
+        };
+      });
 
       const allClips = formattedClippers.flatMap((c) => c.clips || []);
       return { clippers: formattedClippers, clips: allClips };
