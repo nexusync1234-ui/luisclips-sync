@@ -226,7 +226,7 @@ export default function StreamModeModal({
 
                 {/* 1st Place (Winner / Highlighted) */}
                 {first && (
-                  <div className="order-1 sm:order-2 bg-[#16161c] rounded-2xl p-5 border-2 border-white text-center flex flex-col items-center glow-matte-white sm:-translate-y-2 relative">
+                  <div className="order-1 sm:order-2 bg-[#16161c] rounded-2xl p-5 border-2 border-white text-center flex flex-col items-center glow-matte-white relative">
                     <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center mb-1.5 shadow-md">
                       <Crown className="w-5 h-5 fill-black" />
                     </div>
