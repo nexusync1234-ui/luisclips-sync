@@ -34,6 +34,16 @@ export interface Clipper {
   clips?: Clip[];
 }
 
+export interface MaintenanceState {
+  enabled: boolean;
+  endsAt: string | null;
+}
+
+export interface SiteAnnouncement {
+  message: string;
+  updatedAt: string | null;
+}
+
 export interface DashboardStats {
   totalMonthlyViews: number;
   totalAllTimeViews: number;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStoredClippers, deleteClipper } from '@/lib/db';
-import { verifyAdmin } from '@/lib/auth';
+import { consumeMutationAttempt, verifyAdminMutation } from '@/lib/auth';
 
 export async function GET(
   req: NextRequest,
@@ -28,8 +28,14 @@ export async function DELETE(
   { params }: { params: Promise<{ username: string }> }
 ) {
   try {
-    // Check Admin Authentication
-    if (!verifyAdmin(req)) {
+    if (!consumeMutationAttempt(req)) {
+      return NextResponse.json(
+        { success: false, error: 'Demasiados pedidos. Tente novamente dentro de um minuto.' },
+        { status: 429 }
+      );
+    }
+
+    if (!verifyAdminMutation(req)) {
       return NextResponse.json(
         { success: false, error: 'Acesso não autorizado. Apenas o administrador pode remover contas.' },
         { status: 401 }

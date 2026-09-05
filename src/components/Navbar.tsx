@@ -2,28 +2,22 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { RefreshCw, Plus, Tv, Lock, LogOut } from 'lucide-react';
+import { Megaphone, RefreshCw, Tv } from 'lucide-react';
 
 interface NavbarProps {
-  onAddClick: () => void;
   onSyncAll: () => void;
   onOpenStreamMode: () => void;
   isSyncing: boolean;
   isNeonConnected: boolean;
-  isAdmin: boolean;
-  onOpenAdminLogin: () => void;
-  onLogout: () => void;
+  announcement?: string;
 }
 
 export default function Navbar({
-  onAddClick,
   onSyncAll,
   onOpenStreamMode,
   isSyncing,
   isNeonConnected,
-  isAdmin,
-  onOpenAdminLogin,
-  onLogout,
+  announcement,
 }: NavbarProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-[#09090b]/90 backdrop-blur-md">
@@ -83,37 +77,16 @@ export default function Navbar({
             <RefreshCw className={`w-3.5 h-3.5 text-zinc-400 ${isSyncing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Atualizar</span>
           </button>
-
-          {/* Admin Controls */}
-          {isAdmin ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onAddClick}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-white hover:bg-zinc-200 text-black shadow-sm transition-all hover:scale-[1.02]"
-              >
-                <Plus className="w-4 h-4 text-black" />
-                <span>Adicionar</span>
-              </button>
-              <button
-                onClick={onLogout}
-                title="Terminar sessão de Admin"
-                className="p-2 rounded-lg text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={onOpenAdminLogin}
-              title="Acesso reservado ao administrador"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition-colors"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Admin</span>
-            </button>
-          )}
         </div>
       </div>
+      {announcement ? (
+        <div className="border-t border-zinc-800/80 bg-zinc-900/80">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-center gap-2 text-xs sm:text-sm text-zinc-200">
+            <Megaphone className="w-3.5 h-3.5 text-white flex-shrink-0" />
+            <p className="font-semibold truncate">{announcement}</p>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }

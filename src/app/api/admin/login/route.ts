@@ -1,36 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getExpectedToken, ADMIN_COOKIE_NAME } from '@/lib/auth';
+import {
+  ADMIN_SESSION_MAX_AGE,
+  canAttemptLogin,
+  createAdminSession,
+  getAdminCookieOptions,
+  isSameOrigin,
+  recordFailedLogin,
+  resetLoginAttempts,
+  verifyAdminPassword,
+} from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { password } = body;
+    if (!isSameOrigin(req)) {
+      return NextResponse.json(
+        { success: false, error: 'Pedido rejeitado.' },
+        { status: 403 }
+      );
+    }
 
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'luisclips2026';
+    if (!canAttemptLogin(req)) {
+      return NextResponse.json(
+        { success: false, error: 'Demasiadas tentativas. Tente novamente mais tarde.' },
+        { status: 429 }
+      );
+    }
 
-    if (!password || password !== expectedPassword) {
+    const contentType = req.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().includes('application/json')) {
+      recordFailedLogin(req);
       return NextResponse.json(
         { success: false, error: 'Senha de administrador incorreta.' },
         { status: 401 }
       );
     }
 
-    const token = getExpectedToken();
-    const response = NextResponse.json({ success: true, message: 'Autenticado com sucesso!' });
+    const body = await req.json().catch(() => null);
+    const password = body && typeof body === 'object' ? (body as { password?: unknown }).password : null;
 
-    // Set HTTP-only cookie
+    if (!verifyAdminPassword(password)) {
+      recordFailedLogin(req);
+      return NextResponse.json(
+        { success: false, error: 'Senha de administrador incorreta.' },
+        { status: 401 }
+      );
+    }
+
+    const token = createAdminSession();
+    if (!token) {
+      return NextResponse.json(
+        { success: false, error: 'Senha de administrador incorreta.' },
+        { status: 401 }
+      );
+    }
+
+    resetLoginAttempts(req);
+
+    const response = NextResponse.json({ success: true, message: 'Autenticado com sucesso!' });
     response.cookies.set({
-      name: ADMIN_COOKIE_NAME,
+      ...getAdminCookieOptions(ADMIN_SESSION_MAX_AGE),
       value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
     });
 
     return response;
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Não foi possível autenticar.' },
+      { status: 500 }
+    );
   }
 }

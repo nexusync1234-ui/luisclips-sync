@@ -6,11 +6,11 @@ import HeroCountdown from '@/components/HeroCountdown';
 import Podium from '@/components/Podium';
 import LeaderboardTable from '@/components/LeaderboardTable';
 import ClipsFeed from '@/components/ClipsFeed';
-import AddClipperModal from '@/components/AddClipperModal';
 import ClipperDetailModal from '@/components/ClipperDetailModal';
 import StreamModeModal from '@/components/StreamModeModal';
-import AdminLoginModal from '@/components/AdminLoginModal';
-import { Clipper, Clip, DashboardStats } from '@/lib/types';
+import MaintenanceOverlay from '@/components/MaintenanceOverlay';
+import PresenceTracker from '@/components/PresenceTracker';
+import { Clipper, Clip, DashboardStats, MaintenanceState } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
@@ -20,24 +20,14 @@ export default function HomePage() {
   const [isNeonConnected, setIsNeonConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncingUsername, setSyncingUsername] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Modals
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedClipper, setSelectedClipper] = useState<Clipper | null>(null);
   const [isStreamModeOpen, setIsStreamModeOpen] = useState(false);
-  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
-
-  const checkAdminStatus = async () => {
-    try {
-      const res = await fetch('/api/admin/check');
-      const data = await res.json();
-      setIsAdmin(Boolean(data.isAdmin));
-    } catch {
-      setIsAdmin(false);
-    }
-  };
+  const [maintenance, setMaintenance] = useState<MaintenanceState>({
+    enabled: false,
+    endsAt: null,
+  });
+  const [announcement, setAnnouncement] = useState('');
 
   const loadData = async () => {
     try {
@@ -59,75 +49,59 @@ export default function HomePage() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-    checkAdminStatus();
-  }, []);
-
-  const handleLogout = async () => {
+  const loadMaintenance = async () => {
     try {
-      await fetch('/api/admin/logout', { method: 'POST' });
-      setIsAdmin(false);
-    } catch (err) {
-      console.error('Error logging out:', err);
+      const res = await fetch('/api/maintenance');
+      const data = await res.json();
+      if (data.success && data.maintenance) {
+        setMaintenance({
+          enabled: Boolean(data.maintenance.enabled),
+          endsAt: data.maintenance.endsAt || null,
+        });
+      }
+    } catch {
+      setMaintenance({ enabled: false, endsAt: null });
     }
   };
+
+  const loadAnnouncement = async () => {
+    try {
+      const res = await fetch('/api/announcement');
+      const data = await res.json();
+      if (data.success) {
+        setAnnouncement(data.announcement?.message || '');
+      }
+    } catch {
+      setAnnouncement('');
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    loadMaintenance();
+    loadAnnouncement();
+    const interval = setInterval(() => {
+      loadMaintenance();
+      loadAnnouncement();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
-      await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
       await loadData();
     } catch (err) {
-      console.error('Error syncing all clippers:', err);
+      console.error('Error refreshing clippers:', err);
     } finally {
       setIsSyncing(false);
-    }
-  };
-
-  const handleSyncClipper = async (username: string) => {
-    setSyncingUsername(username);
-    try {
-      await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
-      });
-      await loadData();
-    } catch (err) {
-      console.error(`Error syncing @${username}:`, err);
-    } finally {
-      setSyncingUsername(null);
-    }
-  };
-
-  const handleDeleteClipper = async (username: string) => {
-    if (!confirm(`Tem a certeza que deseja remover @${username} da plataforma?`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/clippers/${encodeURIComponent(username)}`, {
-        method: 'DELETE',
-      });
-      const data = await res.json();
-      if (data.success) {
-        await loadData();
-      } else {
-        alert(data.error || 'Erro ao remover clipper');
-      }
-    } catch (err: any) {
-      alert(`Erro: ${err.message}`);
     }
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-white space-y-4">
+        <PresenceTracker />
         <div className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center shadow-lg">
           <Loader2 className="w-6 h-6 animate-spin text-black" />
         </div>
@@ -139,15 +113,13 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#09090b]">
       {/* Top Navigation */}
+      <PresenceTracker />
       <Navbar
-        onAddClick={() => setIsAddModalOpen(true)}
         onSyncAll={handleSyncAll}
         onOpenStreamMode={() => setIsStreamModeOpen(true)}
         isSyncing={isSyncing}
         isNeonConnected={isNeonConnected}
-        isAdmin={isAdmin}
-        onOpenAdminLogin={() => setIsAdminLoginOpen(true)}
-        onLogout={handleLogout}
+        announcement={announcement}
       />
 
       <main className="flex-1 pb-16">
@@ -161,11 +133,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
           <LeaderboardTable
             clippers={clippers}
-            onSyncClipper={handleSyncClipper}
-            onDeleteClipper={handleDeleteClipper}
             onSelectClipper={setSelectedClipper}
-            syncingUsername={syncingUsername}
-            isAdmin={isAdmin}
           />
         </div>
 
@@ -186,12 +154,6 @@ export default function HomePage() {
       </footer>
 
       {/* Modals */}
-      <AddClipperModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAdded={loadData}
-      />
-
       <ClipperDetailModal
         clipper={selectedClipper}
         onClose={() => setSelectedClipper(null)}
@@ -204,14 +166,8 @@ export default function HomePage() {
         currentMonthName={stats?.currentMonthName || 'Mês'}
       />
 
-      <AdminLoginModal
-        isOpen={isAdminLoginOpen}
-        onClose={() => setIsAdminLoginOpen(false)}
-        onSuccess={() => {
-          setIsAdmin(true);
-          loadData();
-        }}
-      />
+      {maintenance.enabled && <MaintenanceOverlay endsAt={maintenance.endsAt} />}
+
     </div>
   );
 }

@@ -1,7 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { ensureEnvLoaded } from './env';
 import prisma from './prisma';
 import { Clipper, Clip } from './types';
+
+ensureEnvLoaded();
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'db.json');
@@ -63,8 +66,9 @@ function saveLocalStore(store: DatabaseStore) {
 }
 
 export function isNeonConfigured(): boolean {
-  const url = process.env.DATABASE_URL;
-  return Boolean(url && url.startsWith('postgres') && !url.includes('YOUR_PASSWORD') && !url.includes('ep-sample'));
+  ensureEnvLoaded();
+  const url = process.env.DATABASE_URL || '';
+  return url.startsWith('postgres') && !url.includes('YOUR_PASSWORD') && !url.includes('ep-sample');
 }
 
 export async function getStoredClippers(): Promise<{ clippers: Clipper[]; clips: Clip[] }> {

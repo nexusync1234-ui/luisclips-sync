@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStoredClippers, saveClipperData, isNeonConfigured } from '@/lib/db';
 import { fetchClipperData } from '@/lib/scraper';
-import { verifyAdmin } from '@/lib/auth';
+import { consumeMutationAttempt, verifyAdminMutation } from '@/lib/auth';
 import { DashboardStats } from '@/lib/types';
 
 export const maxDuration = 30;
@@ -59,8 +59,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Check Admin Authentication
-    if (!verifyAdmin(req)) {
+    if (!consumeMutationAttempt(req)) {
+      return NextResponse.json(
+        { success: false, error: 'Demasiados pedidos. Tente novamente dentro de um minuto.' },
+        { status: 429 }
+      );
+    }
+
+    if (!verifyAdminMutation(req)) {
       return NextResponse.json(
         { success: false, error: 'Acesso não autorizado. Apenas o administrador pode adicionar contas.' },
         { status: 401 }

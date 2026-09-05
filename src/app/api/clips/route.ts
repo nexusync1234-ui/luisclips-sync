@@ -8,7 +8,8 @@ export async function GET(req: NextRequest) {
     
     const monthOnly = searchParams.get('month') === 'true';
     const clipper = searchParams.get('clipper');
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const parsedLimit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 200) : 50;
 
     let filtered = [...clips];
 

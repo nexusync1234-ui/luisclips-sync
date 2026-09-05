@@ -1,13 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStoredClippers, saveClipperData } from '@/lib/db';
 import { fetchClipperData } from '@/lib/scraper';
+import { consumeMutationAttempt, verifyAdminMutation } from '@/lib/auth';
 
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
+    if (!consumeMutationAttempt(req)) {
+      return NextResponse.json(
+        { success: false, error: 'Demasiados pedidos. Tente novamente dentro de um minuto.' },
+        { status: 429 }
+      );
+    }
+
+    if (!verifyAdminMutation(req)) {
+      return NextResponse.json(
+        { success: false, error: 'Acesso não autorizado. Apenas o administrador pode sincronizar contas.' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
-    const targetUsername = body.username ? body.username.replace(/^@/, '').trim() : null;
+    const rawUsername = typeof body.username === 'string' ? body.username : '';
+    const targetUsername = rawUsername ? rawUsername.replace(/^@/, '').replace(/[^a-zA-Z0-9_.-]/g, '').trim() : null;
 
     const { clippers } = await getStoredClippers();
     const clippersToSync = targetUsername

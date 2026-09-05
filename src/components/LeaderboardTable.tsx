@@ -18,10 +18,10 @@ import { formatNumber, getClipperAvgViews } from '@/lib/utils';
 
 interface LeaderboardTableProps {
   clippers: Clipper[];
-  onSyncClipper: (username: string) => void;
-  onDeleteClipper: (username: string) => void;
+  onSyncClipper?: (username: string) => void;
+  onDeleteClipper?: (username: string) => void;
   onSelectClipper: (clipper: Clipper) => void;
-  syncingUsername: string | null;
+  syncingUsername?: string | null;
   isAdmin?: boolean;
 }
 
@@ -30,7 +30,7 @@ export default function LeaderboardTable({
   onSyncClipper,
   onDeleteClipper,
   onSelectClipper,
-  syncingUsername,
+  syncingUsername = null,
   isAdmin = false,
 }: LeaderboardTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -302,7 +302,7 @@ export default function LeaderboardTable({
                         {isAdmin && (
                           <>
                             <button
-                              onClick={() => onSyncClipper(clipper.username)}
+                              onClick={() => onSyncClipper?.(clipper.username)}
                               disabled={isSyncingThis}
                               title="Sincronizar métricas"
                               className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors border border-zinc-800 disabled:opacity-50"
@@ -310,7 +310,7 @@ export default function LeaderboardTable({
                               <RefreshCw className={`w-3.5 h-3.5 ${isSyncingThis ? 'animate-spin text-white' : ''}`} />
                             </button>
                             <button
-                              onClick={() => onDeleteClipper(clipper.username)}
+                              onClick={() => onDeleteClipper?.(clipper.username)}
                               title="Remover clipper"
                               className="p-1.5 rounded-lg bg-zinc-900 hover:bg-red-950/30 text-zinc-400 hover:text-red-400 transition-colors border border-zinc-800 hover:border-red-900/50"
                             >
