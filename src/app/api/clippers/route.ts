@@ -4,6 +4,8 @@ import { fetchClipperData } from '@/lib/scraper';
 import { verifyAdmin } from '@/lib/auth';
 import { DashboardStats } from '@/lib/types';
 
+export const maxDuration = 30;
+
 export async function GET(req: NextRequest) {
   try {
     const { clippers, clips } = await getStoredClippers();
