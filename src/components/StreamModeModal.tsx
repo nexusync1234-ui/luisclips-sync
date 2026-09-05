@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Maximize2, Minimize2, Crown, Trophy, ExternalLink, Copy, Check, Sparkles, RefreshCw } from 'lucide-react';
+import { X, Maximize2, Minimize2, Crown, Trophy, ExternalLink, Copy, Check, Sparkles, RefreshCw, Flame } from 'lucide-react';
 import { Clipper } from '@/lib/types';
+import { formatNumber, getClipperAvgViews } from '@/lib/utils';
 
 interface StreamModeModalProps {
   isOpen: boolean;
@@ -79,12 +80,6 @@ export default function StreamModeModal({
   const first = sorted[0];
   const second = sorted[1];
   const third = sorted[2];
-
-  const formatNumber = (num: number) => {
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'k';
-    return num.toLocaleString('pt-PT');
-  };
 
   return (
     <div className="fixed inset-0 z-50 bg-[#070709] text-white flex flex-col overflow-hidden animate-in fade-in duration-200">
@@ -222,6 +217,10 @@ export default function StreamModeModal({
                       {formatNumber(second.monthlyViews)}{' '}
                       <span className="text-[10px] text-zinc-500 font-normal">views</span>
                     </div>
+                    <div className="mt-1.5 text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1">
+                      <Flame className="w-3.5 h-3.5 text-white" />
+                      <span>~{formatNumber(getClipperAvgViews(second))} / tt</span>
+                    </div>
                   </div>
                 )}
 
@@ -249,6 +248,10 @@ export default function StreamModeModal({
                     <div className="mt-3 text-2xl sm:text-3xl font-black text-white">
                       {formatNumber(first.monthlyViews)}{' '}
                       <span className="text-xs text-zinc-400 font-normal">views</span>
+                    </div>
+                    <div className="mt-1.5 text-xs text-white font-black flex items-center justify-center gap-1 bg-zinc-900 border border-zinc-700/80 px-2.5 py-1 rounded-lg">
+                      <Flame className="w-3.5 h-3.5 text-white" />
+                      <span>~{formatNumber(getClipperAvgViews(first))} / TikTok</span>
                     </div>
                     <a
                       href={`https://www.tiktok.com/@${first.username}`}
@@ -283,6 +286,10 @@ export default function StreamModeModal({
                     <div className="mt-3 text-xl sm:text-2xl font-black text-white">
                       {formatNumber(third.monthlyViews)}{' '}
                       <span className="text-[10px] text-zinc-500 font-normal">views</span>
+                    </div>
+                    <div className="mt-1.5 text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1">
+                      <Flame className="w-3.5 h-3.5 text-white" />
+                      <span>~{formatNumber(getClipperAvgViews(third))} / tt</span>
                     </div>
                   </div>
                 )}
@@ -339,8 +346,11 @@ export default function StreamModeModal({
                       <div className="text-sm sm:text-base font-black text-white">
                         {formatNumber(clipper.monthlyViews)}
                       </div>
-                      <div className="text-[10px] text-zinc-500">
-                        {formatNumber(clipper.totalLikes)} likes
+                      <div className="text-[10px] text-zinc-400 font-semibold flex items-center justify-end gap-1">
+                        <Flame className="w-3 h-3 text-white" />
+                        <span>~{formatNumber(getClipperAvgViews(clipper))}/tt</span>
+                        <span className="text-zinc-600">•</span>
+                        <span>{formatNumber(clipper.totalLikes)} likes</span>
                       </div>
                     </div>
                   </div>

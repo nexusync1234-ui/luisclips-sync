@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Crown, Trophy, ExternalLink, Sparkles, RefreshCw } from 'lucide-react';
+import { Crown, Trophy, ExternalLink, Sparkles, RefreshCw, Flame } from 'lucide-react';
 import { Clipper, DashboardStats } from '@/lib/types';
+import { formatNumber, getClipperAvgViews } from '@/lib/utils';
 
 export default function StreamPage() {
   const [clippers, setClippers] = useState<Clipper[]>([]);
@@ -38,12 +39,6 @@ export default function StreamPage() {
   const first = sorted[0];
   const second = sorted[1];
   const third = sorted[2];
-
-  const formatNumber = (num: number) => {
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'k';
-    return num.toLocaleString('pt-PT');
-  };
 
   return (
     <div className="h-screen w-screen bg-[#070709] text-white flex flex-col overflow-hidden select-none p-4 sm:p-6">
@@ -115,6 +110,10 @@ export default function StreamPage() {
                   {formatNumber(second.monthlyViews)}{' '}
                   <span className="text-[10px] text-zinc-500 font-normal">views</span>
                 </div>
+                <div className="mt-1 text-[11px] text-zinc-300 font-semibold flex items-center justify-center gap-1">
+                  <Flame className="w-3 h-3 text-white" />
+                  <span>~{formatNumber(getClipperAvgViews(second))} / tt</span>
+                </div>
               </div>
             )}
 
@@ -143,6 +142,10 @@ export default function StreamPage() {
                   {formatNumber(first.monthlyViews)}{' '}
                   <span className="text-xs text-zinc-400 font-normal">views</span>
                 </div>
+                <div className="mt-1 text-xs text-white font-black flex items-center justify-center gap-1 bg-zinc-900 border border-zinc-700/80 px-2 py-0.5 rounded-lg">
+                  <Flame className="w-3.5 h-3.5 text-white" />
+                  <span>~{formatNumber(getClipperAvgViews(first))} / TikTok</span>
+                </div>
                 <div className="mt-2 text-[10px] uppercase font-bold tracking-wider text-black bg-white px-2 py-0.5 rounded-full">
                   Candidato a Contratação
                 </div>
@@ -170,6 +173,10 @@ export default function StreamPage() {
                 <div className="mt-2 text-xl font-black text-white">
                   {formatNumber(third.monthlyViews)}{' '}
                   <span className="text-[10px] text-zinc-500 font-normal">views</span>
+                </div>
+                <div className="mt-1 text-[11px] text-zinc-300 font-semibold flex items-center justify-center gap-1">
+                  <Flame className="w-3 h-3 text-white" />
+                  <span>~{formatNumber(getClipperAvgViews(third))} / tt</span>
                 </div>
               </div>
             )}
@@ -223,8 +230,11 @@ export default function StreamPage() {
                   <div className="text-sm font-black text-white">
                     {formatNumber(clipper.monthlyViews)}
                   </div>
-                  <div className="text-[9px] text-zinc-500">
-                    {formatNumber(clipper.totalLikes)} likes
+                  <div className="text-[9px] text-zinc-400 font-semibold flex items-center justify-end gap-1">
+                    <Flame className="w-2.5 h-2.5 text-white" />
+                    <span>~{formatNumber(getClipperAvgViews(clipper))}/tt</span>
+                    <span className="text-zinc-600">•</span>
+                    <span>{formatNumber(clipper.totalLikes)} likes</span>
                   </div>
                 </div>
               </div>

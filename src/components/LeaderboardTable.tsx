@@ -11,8 +11,10 @@ import {
   Film,
   Heart,
   Users,
+  Flame,
 } from 'lucide-react';
 import { Clipper } from '@/lib/types';
+import { formatNumber, getClipperAvgViews } from '@/lib/utils';
 
 interface LeaderboardTableProps {
   clippers: Clipper[];
@@ -32,18 +34,17 @@ export default function LeaderboardTable({
   isAdmin = false,
 }: LeaderboardTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [period, setPeriod] = useState<'month' | 'allTime'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'avgViews' | 'allTime'>('month');
 
-  const formatNumber = (num: number) => {
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'k';
-    return num.toLocaleString('pt-PT');
-  };
-
-  // Sort based on period
+  // Sort based on viewMode
   const sorted = [...clippers].sort((a, b) => {
-    if (period === 'month') return b.monthlyViews - a.monthlyViews;
-    return b.allTimeViews - a.allTimeViews;
+    if (viewMode === 'avgViews') {
+      const avgA = getClipperAvgViews(a, true);
+      const avgB = getClipperAvgViews(b, true);
+      return avgB - avgA;
+    }
+    if (viewMode === 'allTime') return b.allTimeViews - a.allTimeViews;
+    return b.monthlyViews - a.monthlyViews;
   });
 
   // Filter by search
@@ -53,7 +54,10 @@ export default function LeaderboardTable({
       c.nickname.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const maxViews = Math.max(...clippers.map((c) => (period === 'month' ? c.monthlyViews : c.allTimeViews)), 1);
+  const maxViews = Math.max(
+    ...clippers.map((c) => (viewMode === 'allTime' ? c.allTimeViews : c.monthlyViews)),
+    1
+  );
 
   return (
     <div className="matte-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-sm">
@@ -65,17 +69,17 @@ export default function LeaderboardTable({
             Classificação Geral dos Clippers
           </h3>
           <p className="text-xs text-zinc-400">
-            Acompanhe o desempenho de cada conta de clipes
+            Acompanhe o desempenho e a média de visualizações de cada conta
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Period Toggle */}
-          <div className="bg-[#141418] p-1 rounded-xl border border-zinc-800 flex items-center">
+          {/* View / Sort Mode Toggle */}
+          <div className="bg-[#141418] p-1 rounded-xl border border-zinc-800 flex items-center flex-wrap gap-1">
             <button
-              onClick={() => setPeriod('month')}
+              onClick={() => setViewMode('month')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                period === 'month'
+                viewMode === 'month'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
@@ -83,9 +87,20 @@ export default function LeaderboardTable({
               Mês Atual (Live)
             </button>
             <button
-              onClick={() => setPeriod('allTime')}
+              onClick={() => setViewMode('avgViews')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'avgViews'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5" />
+              Maior Média / TikTok
+            </button>
+            <button
+              onClick={() => setViewMode('allTime')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                period === 'allTime'
+                viewMode === 'allTime'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
@@ -113,16 +128,21 @@ export default function LeaderboardTable({
         <table className="w-full text-left text-sm text-zinc-300">
           <thead className="bg-[#09090b] text-[11px] uppercase tracking-wider text-zinc-400 border-b border-zinc-800/80">
             <tr>
-              <th scope="col" className="px-5 py-3 text-center font-bold">#</th>
-              <th scope="col" className="px-5 py-3 font-bold">Clipper</th>
-              <th scope="col" className="px-5 py-3 font-bold">
-                {period === 'month' ? 'Views no Mês' : 'Views Totais'}
+              <th scope="col" className="px-4 sm:px-5 py-3 text-center font-bold">#</th>
+              <th scope="col" className="px-4 sm:px-5 py-3 font-bold">Clipper</th>
+              <th scope="col" className="px-4 sm:px-5 py-3 font-bold">
+                {viewMode === 'allTime' ? 'Views Totais' : 'Views no Mês'}
               </th>
-              <th scope="col" className="px-5 py-3 font-bold hidden sm:table-cell">Likes</th>
-              <th scope="col" className="px-5 py-3 font-bold hidden md:table-cell">Seguidores</th>
-              <th scope="col" className="px-5 py-3 font-bold hidden lg:table-cell">Clips</th>
-              <th scope="col" className="px-5 py-3 font-bold hidden xl:table-cell">Média/Clip</th>
-              <th scope="col" className="px-5 py-3 text-right font-bold">Ações</th>
+              <th scope="col" className="px-4 sm:px-5 py-3 font-bold">
+                <span className="flex items-center gap-1 text-white">
+                  <Flame className="w-3.5 h-3.5 text-white" />
+                  Média / TikTok
+                </span>
+              </th>
+              <th scope="col" className="px-4 sm:px-5 py-3 font-bold hidden sm:table-cell">Likes</th>
+              <th scope="col" className="px-4 sm:px-5 py-3 font-bold hidden md:table-cell">Seguidores</th>
+              <th scope="col" className="px-4 sm:px-5 py-3 font-bold hidden lg:table-cell">Clips</th>
+              <th scope="col" className="px-4 sm:px-5 py-3 text-right font-bold">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/50">
@@ -134,11 +154,11 @@ export default function LeaderboardTable({
               </tr>
             ) : (
               filtered.map((clipper, index) => {
-                const currentViews = period === 'month' ? clipper.monthlyViews : clipper.allTimeViews;
+                const currentViews = viewMode === 'allTime' ? clipper.allTimeViews : clipper.monthlyViews;
+                const avgViews = getClipperAvgViews(clipper, viewMode !== 'allTime');
                 const viewPercentage = Math.min(100, Math.round((currentViews / maxViews) * 100));
                 const isWinner = index === 0;
                 const isSyncingThis = syncingUsername === clipper.username;
-                const avgViewsPerClip = clipper.videoCount > 0 ? Math.round(currentViews / Math.min(clipper.videoCount, 20)) : 0;
 
                 return (
                   <tr
@@ -203,8 +223,8 @@ export default function LeaderboardTable({
                     </td>
 
                     {/* Views with Progress Bar */}
-                    <td className="px-5 py-4">
-                      <div className="space-y-1.5 min-w-[120px]">
+                    <td className="px-4 sm:px-5 py-4">
+                      <div className="space-y-1.5 min-w-[110px]">
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-white text-base">
                             {formatNumber(currentViews)}
@@ -220,8 +240,33 @@ export default function LeaderboardTable({
                       </div>
                     </td>
 
+                    {/* Média / TikTok (Prominently next to views and likes) */}
+                    <td className="px-4 sm:px-5 py-4">
+                      <div
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-colors ${
+                          viewMode === 'avgViews'
+                            ? 'bg-white text-black border-white font-black shadow-sm'
+                            : 'bg-zinc-900/90 border-zinc-800 text-zinc-200 font-bold hover:border-zinc-700'
+                        }`}
+                      >
+                        <Flame
+                          className={`w-3.5 h-3.5 ${
+                            viewMode === 'avgViews' ? 'text-black' : 'text-white'
+                          }`}
+                        />
+                        <span className="text-xs sm:text-sm">~{formatNumber(avgViews)}</span>
+                        <span
+                          className={`text-[10px] font-normal ${
+                            viewMode === 'avgViews' ? 'text-zinc-700' : 'text-zinc-400'
+                          }`}
+                        >
+                          /tt
+                        </span>
+                      </div>
+                    </td>
+
                     {/* Total Likes */}
-                    <td className="px-5 py-4 hidden sm:table-cell font-medium text-zinc-300">
+                    <td className="px-4 sm:px-5 py-4 hidden sm:table-cell font-medium text-zinc-300">
                       <div className="flex items-center gap-1.5">
                         <Heart className="w-3.5 h-3.5 text-zinc-500" />
                         <span>{formatNumber(clipper.totalLikes)}</span>
@@ -229,7 +274,7 @@ export default function LeaderboardTable({
                     </td>
 
                     {/* Followers */}
-                    <td className="px-5 py-4 hidden md:table-cell font-medium text-zinc-300">
+                    <td className="px-4 sm:px-5 py-4 hidden md:table-cell font-medium text-zinc-300">
                       <div className="flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-zinc-500" />
                         <span>{formatNumber(clipper.followers)}</span>
@@ -237,16 +282,11 @@ export default function LeaderboardTable({
                     </td>
 
                     {/* Video Count */}
-                    <td className="px-5 py-4 hidden lg:table-cell font-medium text-zinc-300">
+                    <td className="px-4 sm:px-5 py-4 hidden lg:table-cell font-medium text-zinc-300">
                       <div className="flex items-center gap-1.5">
                         <Film className="w-3.5 h-3.5 text-zinc-500" />
                         <span>{clipper.videoCount}</span>
                       </div>
-                    </td>
-
-                    {/* Avg Views per Clip */}
-                    <td className="px-5 py-4 hidden xl:table-cell font-medium text-zinc-500 text-xs">
-                      ~{formatNumber(avgViewsPerClip)} / vídeo
                     </td>
 
                     {/* Actions */}

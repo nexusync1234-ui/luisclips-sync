@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { X, ExternalLink, Eye, Heart, Film, Users, Play, Calendar } from 'lucide-react';
+import { X, ExternalLink, Eye, Heart, Film, Users, Play, Calendar, Flame } from 'lucide-react';
 import { Clipper } from '@/lib/types';
+import { formatNumber, getClipperAvgViews } from '@/lib/utils';
 
 interface ClipperDetailModalProps {
   clipper: Clipper | null;
@@ -14,12 +15,6 @@ export default function ClipperDetailModal({
   onClose,
 }: ClipperDetailModalProps) {
   if (!clipper) return null;
-
-  const formatNumber = (num: number) => {
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'k';
-    return num.toLocaleString('pt-PT');
-  };
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '';
@@ -79,13 +74,22 @@ export default function ClipperDetailModal({
         </div>
 
         {/* Stats Grid */}
-        <div className="p-5 grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0a0a0d] border-b border-zinc-800/70">
+        <div className="p-5 grid grid-cols-2 sm:grid-cols-5 gap-3 bg-[#0a0a0d] border-b border-zinc-800/70">
           <div className="bg-zinc-900/60 p-3 rounded-xl border border-zinc-800">
             <div className="text-xs text-zinc-400 flex items-center gap-1 mb-1">
               <Eye className="w-3.5 h-3.5 text-zinc-400" /> Views no Mês
             </div>
             <div className="text-xl font-bold text-white">
               {formatNumber(clipper.monthlyViews)}
+            </div>
+          </div>
+
+          <div className="bg-zinc-900/90 p-3 rounded-xl border border-zinc-700/80 bg-gradient-to-b from-zinc-900 to-zinc-950">
+            <div className="text-xs text-white font-bold flex items-center gap-1 mb-1">
+              <Flame className="w-3.5 h-3.5 text-white" /> Média / TikTok
+            </div>
+            <div className="text-xl font-black text-white">
+              ~{formatNumber(getClipperAvgViews(clipper))}
             </div>
           </div>
 

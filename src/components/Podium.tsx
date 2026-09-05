@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Crown, ExternalLink, Eye, Heart, Users } from 'lucide-react';
+import { Crown, ExternalLink, Eye, Heart, Users, Flame } from 'lucide-react';
 import { Clipper } from '@/lib/types';
+import { formatNumber, getClipperAvgViews } from '@/lib/utils';
 
 interface PodiumProps {
   clippers: Clipper[];
@@ -15,12 +16,6 @@ export default function Podium({ clippers, onSelectClipper }: PodiumProps) {
   const first = clippers[0];
   const second = clippers.length > 1 ? clippers[1] : null;
   const third = clippers.length > 2 ? clippers[2] : null;
-
-  const formatNumber = (num: number) => {
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'k';
-    return num.toLocaleString('pt-PT');
-  };
 
   return (
     <section className="py-6">
@@ -90,6 +85,12 @@ export default function Podium({ clippers, onSelectClipper }: PodiumProps) {
                     <Users className="w-3.5 h-3.5 text-zinc-400" /> Seguidores:
                   </span>
                   <span className="font-semibold text-zinc-300">{formatNumber(second.followers)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs pt-1.5 border-t border-zinc-800/80">
+                  <span className="text-zinc-300 flex items-center gap-1 font-medium">
+                    <Flame className="w-3.5 h-3.5 text-white" /> Média / TikTok:
+                  </span>
+                  <span className="font-bold text-white">~{formatNumber(getClipperAvgViews(second))}</span>
                 </div>
               </div>
 
@@ -168,6 +169,14 @@ export default function Podium({ clippers, onSelectClipper }: PodiumProps) {
                   </span>
                   <span className="font-bold text-zinc-200">{formatNumber(first.followers)}</span>
                 </div>
+                <div className="flex items-center justify-between text-xs pt-2 border-t border-zinc-800/80">
+                  <span className="text-white flex items-center gap-1.5 font-bold">
+                    <Flame className="w-4 h-4 text-white" /> Média / TikTok:
+                  </span>
+                  <span className="font-black text-base text-white">
+                    ~{formatNumber(getClipperAvgViews(first))}
+                  </span>
+                </div>
               </div>
 
               <div className="mt-4 w-full py-2 rounded-lg bg-white text-black text-xs font-black shadow-sm">
@@ -227,6 +236,12 @@ export default function Podium({ clippers, onSelectClipper }: PodiumProps) {
                     <Users className="w-3.5 h-3.5 text-zinc-400" /> Seguidores:
                   </span>
                   <span className="font-semibold text-zinc-300">{formatNumber(third.followers)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs pt-1.5 border-t border-zinc-800/80">
+                  <span className="text-zinc-300 flex items-center gap-1 font-medium">
+                    <Flame className="w-3.5 h-3.5 text-white" /> Média / TikTok:
+                  </span>
+                  <span className="font-bold text-white">~{formatNumber(getClipperAvgViews(third))}</span>
                 </div>
               </div>
 
