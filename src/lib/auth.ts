@@ -53,7 +53,7 @@ export function createAdminSession(): string | null {
   return `${issuedAt}.${signature}`;
 }
 
-function verifySessionToken(token: string): boolean {
+export function verifySessionToken(token: string): boolean {
   const secret = getAdminSecret();
   if (!secret || !token) return false;
 
