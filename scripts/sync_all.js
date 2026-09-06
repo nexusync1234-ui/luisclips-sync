@@ -3,8 +3,6 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const NEON_DEFAULT_URL = "postgresql://neondb_owner:npg_WQZ7DEbV9oUN@ep-jolly-violet-b2xbamxf-pooler.c-6.eu-central-1.aws.neon.tech/neondb?sslmode=require";
-
 if (!process.env.DATABASE_URL) {
   const envFile = path.join(process.cwd(), '.env');
   if (fs.existsSync(envFile)) {
@@ -15,7 +13,8 @@ if (!process.env.DATABASE_URL) {
 }
 
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = NEON_DEFAULT_URL;
+  console.error("ERRO: DATABASE_URL não definida em variáveis de ambiente nem no ficheiro .env!");
+  process.exit(1);
 }
 
 const prisma = new PrismaClient();

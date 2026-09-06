@@ -42,5 +42,5 @@ jobs:
 
       - name: Run Sincronizacao dos Clippers
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://neondb_owner:npg_WQZ7DEbV9oUN@ep-jolly-violet-b2xbamxf-pooler.c-6.eu-central-1.aws.neon.tech/neondb?sslmode=require' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: node scripts/sync_all.js
