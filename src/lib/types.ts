@@ -23,7 +23,6 @@ export interface Clipper {
   nickname: string;
   avatar: string;
   bio?: string;
-  secUid?: string;
   followers: number;
   totalLikes: number;
   videoCount: number;

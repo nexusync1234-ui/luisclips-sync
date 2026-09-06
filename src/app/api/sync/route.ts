@@ -54,7 +54,6 @@ export async function POST(req: NextRequest) {
               nickname: scraped.profile.nickname,
               avatar: scraped.profile.avatar,
               bio: scraped.profile.bio,
-              secUid: scraped.profile.secUid,
               followers: scraped.profile.followers,
               totalLikes: scraped.profile.totalLikes,
               videoCount: scraped.profile.videoCount,
