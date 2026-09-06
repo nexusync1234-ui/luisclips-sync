@@ -2,14 +2,20 @@ name: Auto Sync Clippers (TikTok -> Neon DB)
 
 on:
   schedule:
-    # Runs automatically every 10 minutes
+    # Runs automatically every 10 minutes 24/7 in the cloud
     - cron: '*/10 * * * *'
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/**'
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -36,5 +42,5 @@ jobs:
 
       - name: Run Sincronizacao dos Clippers
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://neondb_owner:npg_WQZ7DEbV9oUN@ep-jolly-violet-b2xbamxf-pooler.c-6.eu-central-1.aws.neon.tech/neondb?sslmode=require' }}
         run: node scripts/sync_all.js

@@ -3,19 +3,36 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const NEON_DEFAULT_URL = "postgresql://neondb_owner:npg_WQZ7DEbV9oUN@ep-jolly-violet-b2xbamxf-pooler.c-6.eu-central-1.aws.neon.tech/neondb?sslmode=require";
+
+if (!process.env.DATABASE_URL) {
+  const envFile = path.join(process.cwd(), '.env');
+  if (fs.existsSync(envFile)) {
+    const content = fs.readFileSync(envFile, 'utf-8');
+    const match = content.match(/DATABASE_URL=["']?([^"'\r\n]+)["']?/);
+    if (match) process.env.DATABASE_URL = match[1];
+  }
+}
+
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = NEON_DEFAULT_URL;
+}
+
 const prisma = new PrismaClient();
 
-const venvPython = process.platform === 'win32'
-  ? path.join(process.cwd(), '.venv', 'Scripts', 'python.exe')
-  : (fs.existsSync(path.join(process.cwd(), '.venv', 'bin', 'python'))
-      ? path.join(process.cwd(), '.venv', 'bin', 'python')
-      : 'python3');
+function getPythonExecutable() {
+  const winVenv = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
+  const nixVenv = path.join(process.cwd(), '.venv', 'bin', 'python');
+  if (fs.existsSync(winVenv)) return winVenv;
+  if (fs.existsSync(nixVenv)) return nixVenv;
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
 
 const scriptPath = path.join(process.cwd(), 'scripts', 'scrape_user.py');
 
 function scrapeUser(username) {
   return new Promise((resolve, reject) => {
-    const py = fs.existsSync(venvPython) ? venvPython : 'python';
+    const py = getPythonExecutable();
     const proc = spawn(py, [scriptPath, username], {
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
     });

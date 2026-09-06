@@ -59,10 +59,15 @@ def scrape_profile(username):
 def scrape_videos(username, limit=50):
     videos = []
     
-    # Path to local yt-dlp in .venv
+    # Path to local yt-dlp in .venv (Windows or Linux) or system PATH
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ytdlp_bin = os.path.join(base_dir, ".venv", "Scripts", "yt-dlp.exe")
-    if not os.path.exists(ytdlp_bin):
+    win_bin = os.path.join(base_dir, ".venv", "Scripts", "yt-dlp.exe")
+    nix_bin = os.path.join(base_dir, ".venv", "bin", "yt-dlp")
+    if os.path.exists(win_bin):
+        ytdlp_bin = win_bin
+    elif os.path.exists(nix_bin):
+        ytdlp_bin = nix_bin
+    else:
         ytdlp_bin = "yt-dlp"
         
     cmd = [
