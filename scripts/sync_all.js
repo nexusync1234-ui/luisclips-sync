@@ -98,19 +98,28 @@ async function syncAll() {
 
       const allViews = videos.reduce((acc, v) => acc + v.viewCount, 0);
 
+      const updateData = {
+        lastSyncedAt: new Date(scraped.syncedAt || new Date())
+      };
+
+      if (scraped.profile.nickname) updateData.nickname = scraped.profile.nickname;
+      if (scraped.profile.avatar) updateData.avatar = scraped.profile.avatar;
+      if (scraped.profile.bio) updateData.bio = scraped.profile.bio;
+      if (scraped.profile.followers > 0) updateData.followers = scraped.profile.followers;
+      if (scraped.profile.totalLikes > 0) updateData.totalLikes = scraped.profile.totalLikes;
+      if (scraped.profile.videoCount > 0) updateData.videoCount = scraped.profile.videoCount;
+
+      if (videos.length > 0) {
+        updateData.monthlyViews = septViews;
+        updateData.allTimeViews = allViews;
+        console.log(`[OK] @${c.username}: ${videos.length} videos, ${septViews.toLocaleString()} views neste mes`);
+      } else {
+        console.warn(`[SKIP VIEWS] 0 videos retornados para @${c.username}. Mantendo contagens anteriores.`);
+      }
+
       const updated = await prisma.clipper.update({
         where: { id: c.id },
-        data: {
-          nickname: scraped.profile.nickname,
-          avatar: scraped.profile.avatar || undefined,
-          bio: scraped.profile.bio,
-          followers: scraped.profile.followers,
-          totalLikes: scraped.profile.totalLikes,
-          videoCount: scraped.profile.videoCount,
-          monthlyViews: septViews,
-          allTimeViews: allViews,
-          lastSyncedAt: new Date(scraped.syncedAt || new Date())
-        }
+        data: updateData
       });
 
       // Upsert clips

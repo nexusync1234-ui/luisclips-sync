@@ -25,8 +25,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install yt-dlp
-        run: pip install --upgrade yt-dlp
+      - name: Install yt-dlp and curl_cffi
+        run: pip install --upgrade "yt-dlp[default]" curl_cffi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

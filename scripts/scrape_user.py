@@ -13,15 +13,6 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 def scrape_profile(username):
     url = f"https://www.tiktok.com/@{username}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8",
-    }
-    
-    import urllib.request
-    req = urllib.request.Request(url, headers=headers)
-    
     user_data = {
         "username": username,
         "nickname": username,
@@ -33,9 +24,36 @@ def scrape_profile(username):
         "secUid": "",
     }
     
+    html = ""
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            html = resp.read().decode("utf-8", errors="ignore")
+        from curl_cffi import requests
+        resp = requests.get(
+            url,
+            impersonate="chrome124",
+            headers={"Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8"},
+            timeout=12
+        )
+        if resp.status_code == 200:
+            html = resp.text
+    except Exception as err:
+        sys.stderr.write(f"curl_cffi error for @{username}: {err}\n")
+
+    if not html:
+        try:
+            import urllib.request
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8",
+            }
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                html = resp.read().decode("utf-8", errors="ignore")
+        except Exception as e:
+            sys.stderr.write(f"urllib error for @{username}: {e}\n")
+
+    if html:
+        try:
             m = re.search(r'<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>(.*?)</script>', html)
             if m:
                 raw = json.loads(m.group(1))
@@ -51,8 +69,8 @@ def scrape_profile(username):
                 user_data["totalLikes"] = int(st.get("heartCount") or 0)
                 user_data["videoCount"] = int(st.get("videoCount") or 0)
                 user_data["secUid"] = u.get("secUid") or ""
-    except Exception as e:
-        sys.stderr.write(f"Error fetching profile: {e}\n")
+        except Exception as e:
+            sys.stderr.write(f"Error parsing profile for @{username}: {e}\n")
         
     return user_data
 
