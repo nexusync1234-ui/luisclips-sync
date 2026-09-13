@@ -94,6 +94,9 @@ def scrape_videos(username, limit=50):
         "--flat-playlist",
         "--playlist-end", str(limit),
         "--no-warnings",
+        "--impersonate", "chrome",
+        "--socket-timeout", "10",
+        "--retries", "1",
         f"https://www.tiktok.com/@{username}"
     ]
     
@@ -102,6 +105,8 @@ def scrape_videos(username, limit=50):
     
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
+        if res.returncode != 0:
+            raise RuntimeError(f"yt-dlp exit {res.returncode}: {res.stderr.strip()[-1500:]}")
         for line in res.stdout.strip().split("\n"):
             line = line.strip()
             if not line:
@@ -113,7 +118,7 @@ def scrape_videos(username, limit=50):
                     continue
                     
                 raw_upload_date = item.get("upload_date") or "" # Format: "YYYYMMDD"
-                is_current_month = raw_upload_date.startswith(current_year_month) if raw_upload_date else True
+                is_current_month = raw_upload_date.startswith(current_year_month) if raw_upload_date else False
                 
                 # Format to ISO string for standard compatibility
                 if raw_upload_date and len(raw_upload_date) == 8:
@@ -122,10 +127,17 @@ def scrape_videos(username, limit=50):
                         m = int(raw_upload_date[4:6])
                         d = int(raw_upload_date[6:8])
                         upload_date = datetime(y, m, d, tzinfo=timezone.utc).isoformat()
-                    except Exception:
-                        upload_date = datetime.now(timezone.utc).isoformat()
+                    except Exception as err:
+                        raise ValueError(f"Data inválida no vídeo {vid_id}") from err
                 else:
-                    upload_date = datetime.now(timezone.utc).isoformat()
+                    if not item.get("timestamp"):
+                        raise ValueError(f"Vídeo {vid_id} sem data de publicação")
+                    published = datetime.fromtimestamp(item["timestamp"], timezone.utc)
+                    upload_date = published.isoformat()
+                    is_current_month = published.strftime("%Y%m") == current_year_month
+
+                if item.get("view_count") is None:
+                    raise ValueError(f"Vídeo {vid_id} sem contagem de views")
                 
                 # Thumbnails
                 thumbs = item.get("thumbnails") or []
@@ -148,9 +160,12 @@ def scrape_videos(username, limit=50):
                 }
                 videos.append(v)
             except Exception as item_err:
-                pass
+                raise RuntimeError(f"Dados de vídeo inválidos: {item_err}") from item_err
     except Exception as e:
-        sys.stderr.write(f"Error running yt-dlp: {e}\n")
+        raise RuntimeError(f"Falha na recolha de @{username}: {e}") from e
+
+    if not videos:
+        raise RuntimeError(f"@{username}: TikTok não devolveu vídeos; não foi possível verificar as views")
         
     return videos
 
@@ -160,8 +175,12 @@ if __name__ == "__main__":
         sys.exit(1)
         
     target_username = sys.argv[1].replace("@", "").strip()
-    profile = scrape_profile(target_username)
-    videos = scrape_videos(target_username)
+    try:
+        videos = scrape_videos(target_username)
+        profile = scrape_profile(target_username)
+    except Exception as err:
+        print(json.dumps({"error": str(err)}, ensure_ascii=False))
+        sys.exit(1)
     
     # Calculate monthly views and all-time tracked views strictly from real clips
     monthly_views = sum(v["viewCount"] for v in videos if v["isCurrentMonth"])

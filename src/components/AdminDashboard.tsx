@@ -131,6 +131,8 @@ export default function AdminDashboard() {
         credentials: 'same-origin',
       });
       if (handleAuthFailure(res.status)) return;
+      const result = await res.json();
+      if (!res.ok || !result.success) alert(result.error || 'Falha ao sincronizar views.');
       await loadData();
     } catch (err) {
       console.error('Error syncing all clippers:', err);
@@ -149,6 +151,8 @@ export default function AdminDashboard() {
         credentials: 'same-origin',
       });
       if (handleAuthFailure(res.status)) return;
+      const result = await res.json();
+      if (!res.ok || !result.success) alert(result.error || 'Falha ao sincronizar views.');
       await loadData();
     } catch (err) {
       console.error(`Error syncing @${username}:`, err);

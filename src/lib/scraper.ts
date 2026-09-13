@@ -185,6 +185,11 @@ export async function fetchClipperData(username: string): Promise<ScraperOutput>
           reject(new Error('Local python scraper timeout'));
         }, 30000);
 
+        proc.on('error', err => {
+          clearTimeout(timer);
+          reject(err);
+        });
+
         proc.on('close', (code) => {
           clearTimeout(timer);
           if (code !== 0 && !stdout) {
@@ -197,6 +202,9 @@ export async function fetchClipperData(username: string): Promise<ScraperOutput>
               return reject(new Error('Invalid JSON from python scraper'));
             }
             const parsed = JSON.parse(stdout.slice(jsonStart, jsonEnd + 1));
+            if (code !== 0 || parsed.error || !parsed.videos?.length) {
+              return reject(new Error(parsed.error || stderr.trim() || 'TikTok não devolveu vídeos verificáveis'));
+            }
             resolve(parsed);
           } catch (e: any) {
             reject(e);
@@ -206,11 +214,11 @@ export async function fetchClipperData(username: string): Promise<ScraperOutput>
 
       return pythonOutput;
     } catch (err: any) {
-      console.warn(`[Scraper] Python local falhou ou expirou, a usar scraper nativo: ${err.message}`);
+      throw new Error(`Não foi possível atualizar as views: ${err.message}`);
     }
   }
 
   // Blazing-fast native fallback for Vercel Serverless
-  return fetchTikTokNative(cleanUsername);
+  throw new Error('A recolha de views requer o processo de sincronização com Python. O scraper de perfil não recolhe vídeos.');
 }
 

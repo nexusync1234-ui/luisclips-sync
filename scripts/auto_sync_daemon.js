@@ -8,13 +8,18 @@ async function startDaemon() {
   console.log('🤖 Auto-Sync Daemon iniciado! Atualizacao a cada ' + INTERVAL_MINUTES + ' minutos.');
   console.log('=======================================================');
 
+  if (process.argv.includes('--delay-first')) {
+    console.log('Primeira recolha dentro de ' + INTERVAL_MINUTES + ' minutos.');
+    await new Promise(resolve => setTimeout(resolve, INTERVAL_MS));
+  }
+
   while (true) {
     const start = Date.now();
     try {
       console.log('[' + new Date().toLocaleTimeString('pt-PT') + '] Iniciando ciclo de sincronizacao...');
-      await syncAll();
+      const result = await syncAll();
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      console.log('[' + new Date().toLocaleTimeString('pt-PT') + '] Ciclo concluido em ' + elapsed + 's.');
+      console.log('[' + new Date().toLocaleTimeString('pt-PT') + '] Ciclo concluido em ' + elapsed + 's: ' + result.syncedCount + ' atualizadas, ' + result.errors.length + ' falhas.');
     } catch (err) {
       console.error('[' + new Date().toLocaleTimeString('pt-PT') + '] Erro no ciclo:', err);
     }

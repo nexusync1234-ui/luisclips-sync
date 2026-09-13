@@ -29,6 +29,18 @@ Plataforma desenvolvida para analisar, classificar e exibir em direto na stream 
 
 ## 🚀 Como Iniciar o Projeto
 
+### Atualização automática das views
+
+A página relê a base de dados a cada 30 segundos. A recolha de novas views exige o processo Python com `yt-dlp` e acesso ao TikTok.
+
+No Windows, abra `iniciar_auto_sync_oculto.vbs`: inicia um processo em segundo plano que recolhe as métricas, aguarda cinco minutos e repete. A primeira recolha começa após cinco minutos. O computador tem de permanecer ligado e com Internet; volte a iniciar o processo após reiniciar o Windows. Os logs ficam em `.sync/output.log` e `.sync/error.log`. Use `parar_auto_sync.bat` para parar apenas este processo.
+
+Para uma atualização imediata, execute `npm run sync`. Recolhas vazias ou inválidas preservam os dados e a data da última sincronização válida; o comando termina com erro se alguma conta falhar. São recolhidos até 50 vídeos recentes por conta, mantendo os clips anteriormente guardados. Os totais abrangem os clips monitorizados e não garantem a cobertura de todo o perfil.
+
+O agendamento na nuvem está no repositório `nexusync1234-ui/luisclips-sync`, workflow `auto_sync.yml`, a cada dez minutos (minutos 03, 13, 23, 33, 43 e 53). Funciona com o PC desligado; o GitHub pode atrasar execuções. O extrator usa `curl_cffi` e `--impersonate chrome` também nos pedidos à API do TikTok. Em 7 de setembro de 2026, a execução `34123883560` atualizou 26 de 28 contas com o processo local parado; duas não devolveram vídeos e conservaram os dados. O workflow assinala erro quando alguma conta não pode ser verificada.
+
+Para alterar o processo na nuvem, publique os scripts nesse repositório dedicado. As alterações neste checkout, por si só, não o atualizam. O processo local é apenas uma alternativa e deve ficar parado quando se usa a nuvem, para evitar recolhas concorrentes.
+
 ### 1. Iniciar o Servidor de Desenvolvimento
 ```bash
 npm run dev -- -p 3005

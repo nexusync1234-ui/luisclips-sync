@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
         if (scraped && scraped.profile) {
           const updated = await saveClipperData(
             {
+              id: clipper.id,
               username: scraped.profile.username,
               nickname: scraped.profile.nickname,
               avatar: scraped.profile.avatar,
@@ -71,7 +72,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      success: true,
+      success: errors.length === 0,
+      error: errors.length ? `${errors.length} conta(s) sem atualização de views. Os dados anteriores foram preservados.` : undefined,
       syncedCount: results.length,
       clippers: results,
       errors: errors.length > 0 ? errors : undefined,

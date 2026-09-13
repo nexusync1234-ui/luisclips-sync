@@ -1,2 +1,4 @@
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run "node scripts/auto_sync_daemon.js", 0, False
+Set Fso = CreateObject("Scripting.FileSystemObject")
+ProjectRoot = Fso.GetParentFolderName(WScript.ScriptFullName)
+WshShell.Run "powershell.exe -NoProfile -File """ & ProjectRoot & "\scripts\start_auto_sync.ps1""", 0, False

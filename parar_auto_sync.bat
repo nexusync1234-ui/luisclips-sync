@@ -1,5 +1,5 @@
 @echo off
 echo A parar auto-sync...
-wmic process where "commandline like '%%auto_sync_daemon.js%%'" call terminate 2>nul
+powershell.exe -NoProfile -File "%~dp0scripts\stop_auto_sync.ps1"
 echo Parado com sucesso!
 pause

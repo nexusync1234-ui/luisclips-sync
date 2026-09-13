@@ -3,7 +3,7 @@ name: Auto Sync Clippers (TikTok -> Neon DB)
 on:
   schedule:
     # Runs automatically every 10 minutes 24/7 in the cloud
-    - cron: '*/10 * * * *'
+    - cron: '3-59/10 * * * *'
   workflow_dispatch:
   push:
     branches:
@@ -11,6 +11,13 @@ on:
     paths:
       - 'scripts/**'
       - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tiktok-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
@@ -39,6 +46,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Test scraper failure handling
+        run: python scripts/test_scrape_user.py
 
       - name: Run Sincronizacao dos Clippers
         env:

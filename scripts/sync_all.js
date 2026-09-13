@@ -45,7 +45,12 @@ function scrapeUser(username) {
     const timer = setTimeout(() => {
       proc.kill();
       reject(new Error('Timeout scraping @' + username));
-    }, 35000);
+    }, 55000);
+
+    proc.on('error', err => {
+      clearTimeout(timer);
+      reject(err);
+    });
 
     proc.on('close', code => {
       clearTimeout(timer);
@@ -56,6 +61,9 @@ function scrapeUser(username) {
           return reject(new Error('Invalid output for @' + username));
         }
         const data = JSON.parse(stdout.slice(start, end + 1));
+        if (code !== 0 || data.error || !data.videos?.length) {
+          return reject(new Error(data.error || stderr.trim() || 'Recolha sem vídeos verificáveis'));
+        }
         resolve(data);
       } catch (e) {
         reject(e);
@@ -65,12 +73,14 @@ function scrapeUser(username) {
 }
 
 function parseDateSafe(d) {
-  if (!d) return new Date();
   const dt = new Date(d);
-  return isNaN(dt.getTime()) ? new Date() : dt;
+  if (!d || isNaN(dt.getTime())) throw new Error('Data de publicação inválida');
+  return dt;
 }
 
 async function syncAll() {
+  const errors = [];
+  let syncedCount = 0;
   console.log('--- Iniciando sincronização automática dos clippers ---');
   const clippers = await prisma.clipper.findMany({ select: { id: true, username: true } });
   console.log('Encontrados ' + clippers.length + ' clippers na base de dados.');
@@ -84,20 +94,10 @@ async function syncAll() {
       console.log('A sincronizar @' + c.username + '...');
       const scraped = await scrapeUser(c.username);
       if (!scraped || !scraped.profile) {
-        console.warn('Aviso: Perfil vazio para @' + c.username);
-        continue;
+        throw new Error('Perfil vazio para @' + c.username);
       }
 
       const videos = scraped.videos || [];
-      const septViews = videos
-        .filter(v => {
-          const d = parseDateSafe(v.uploadDate);
-          return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-        })
-        .reduce((acc, v) => acc + v.viewCount, 0);
-
-      const allViews = videos.reduce((acc, v) => acc + v.viewCount, 0);
-
       const updateData = {
         lastSyncedAt: new Date(scraped.syncedAt || new Date())
       };
@@ -109,66 +109,74 @@ async function syncAll() {
       if (scraped.profile.totalLikes > 0) updateData.totalLikes = scraped.profile.totalLikes;
       if (scraped.profile.videoCount > 0) updateData.videoCount = scraped.profile.videoCount;
 
-      if (videos.length > 0) {
-        updateData.monthlyViews = septViews;
-        updateData.allTimeViews = allViews;
-        console.log(`[OK] @${c.username}: ${videos.length} videos, ${septViews.toLocaleString()} views neste mes`);
-      } else {
-        console.warn(`[SKIP VIEWS] 0 videos retornados para @${c.username}. Mantendo contagens anteriores.`);
-      }
-
-      const updated = await prisma.clipper.update({
-        where: { id: c.id },
-        data: updateData
-      });
-
-      // Upsert clips
-      for (const v of videos) {
-        const d = parseDateSafe(v.uploadDate);
-        const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-
-        await prisma.clip.upsert({
-          where: { id: v.id },
-          create: {
-            id: v.id,
-            clipperId: updated.id,
-            title: v.title,
-            url: v.url,
-            coverUrl: v.coverUrl || '',
-            viewCount: v.viewCount,
-            likeCount: v.likeCount,
-            commentCount: v.commentCount,
-            repostCount: v.repostCount,
-            duration: v.duration,
-            uploadDate: d,
-            isCurrentMonth
-          },
-          update: {
-            title: v.title,
-            coverUrl: v.coverUrl || '',
-            viewCount: v.viewCount,
-            likeCount: v.likeCount,
-            commentCount: v.commentCount,
-            repostCount: v.repostCount,
-            uploadDate: d,
-            isCurrentMonth
-          }
+      await prisma.$transaction(async tx => {
+        const updated = await tx.clipper.update({
+          where: { id: c.id },
+          data: updateData
         });
-      }
 
-      console.log('✓ @' + c.username + ': ' + septViews.toLocaleString('pt-PT') + ' views em setembro (' + videos.length + ' clips)');
+        // Upsert clips
+        for (const v of videos) {
+          const d = parseDateSafe(v.uploadDate);
+          const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+
+          await tx.clip.upsert({
+            where: { id: v.id },
+            create: {
+              id: v.id,
+              clipperId: updated.id,
+              title: v.title,
+              url: v.url,
+              coverUrl: v.coverUrl || '',
+              viewCount: v.viewCount,
+              likeCount: v.likeCount,
+              commentCount: v.commentCount,
+              repostCount: v.repostCount,
+              duration: v.duration,
+              uploadDate: d,
+              isCurrentMonth
+            },
+            update: {
+              title: v.title,
+              coverUrl: v.coverUrl || '',
+              viewCount: v.viewCount,
+              likeCount: v.likeCount,
+              commentCount: v.commentCount,
+              repostCount: v.repostCount,
+              uploadDate: d,
+              isCurrentMonth
+            }
+          });
+        }
+        // Sum all tracked clips, including older clips outside the scraper's latest page.
+        const month = await tx.clip.aggregate({ where: { clipperId: c.id, uploadDate: {
+          gte: new Date(currentYear, currentMonth, 1), lt: new Date(currentYear, currentMonth + 1, 1)
+        } }, _sum: { viewCount: true } });
+        const total = await tx.clip.aggregate({ where: { clipperId: c.id }, _sum: { viewCount: true } });
+        await tx.clipper.update({ where: { id: c.id }, data: {
+          monthlyViews: month._sum.viewCount || 0, allTimeViews: total._sum.viewCount || 0
+        } });
+      }, { timeout: 30000 });
+
+      syncedCount++;
+      console.log('[OK] @' + c.username + ': ' + videos.length + ' clips atualizados');
     } catch (err) {
+      errors.push({ username: c.username, error: err.message });
       console.error('Erro ao sincronizar @' + c.username + ':', err.message);
     }
   }
 
-  console.log('--- Sincronização concluída com sucesso! ---');
+  console.log(`Sincronização: ${syncedCount}/${clippers.length} contas atualizadas; ${errors.length} falhas.`);
+  return { syncedCount, errors };
 }
 
 module.exports = { syncAll };
 
 if (require.main === module) {
-  syncAll().then(() => prisma.$disconnect()).catch(e => {
+  syncAll().then(result => {
+    if (result.errors.length) process.exitCode = 1;
+    return prisma.$disconnect();
+  }).catch(e => {
     console.error(e);
     prisma.$disconnect();
     process.exit(1);
