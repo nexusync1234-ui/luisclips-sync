@@ -106,7 +106,10 @@ def scrape_videos(username, limit=50):
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
         if res.returncode != 0:
-            raise RuntimeError(f"yt-dlp exit {res.returncode}: {res.stderr.strip()[-1500:]}")
+            err_msg = res.stderr.strip()
+            if "does not have any videos posted" in err_msg.lower() or "no videos" in err_msg.lower():
+                return []
+            raise RuntimeError(f"yt-dlp exit {res.returncode}: {err_msg[-1500:]}")
         for line in res.stdout.strip().split("\n"):
             line = line.strip()
             if not line:
@@ -162,11 +165,11 @@ def scrape_videos(username, limit=50):
             except Exception as item_err:
                 raise RuntimeError(f"Dados de vídeo inválidos: {item_err}") from item_err
     except Exception as e:
+        err_msg = str(e).lower()
+        if "does not have any videos posted" in err_msg or "no videos" in err_msg:
+            return []
         raise RuntimeError(f"Falha na recolha de @{username}: {e}") from e
 
-    if not videos:
-        raise RuntimeError(f"@{username}: TikTok não devolveu vídeos; não foi possível verificar as views")
-        
     return videos
 
 if __name__ == "__main__":
@@ -175,12 +178,16 @@ if __name__ == "__main__":
         sys.exit(1)
         
     target_username = sys.argv[1].replace("@", "").strip()
+    profile = scrape_profile(target_username)
+    
     try:
         videos = scrape_videos(target_username)
-        profile = scrape_profile(target_username)
     except Exception as err:
-        print(json.dumps({"error": str(err)}, ensure_ascii=False))
-        sys.exit(1)
+        if profile.get("videoCount") == 0:
+            videos = []
+        else:
+            print(json.dumps({"error": str(err), "profile": profile}, ensure_ascii=False))
+            sys.exit(1)
     
     # Calculate monthly views and all-time tracked views strictly from real clips
     monthly_views = sum(v["viewCount"] for v in videos if v["isCurrentMonth"])
