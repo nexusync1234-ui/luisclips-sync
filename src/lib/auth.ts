@@ -15,25 +15,25 @@ const loginAttempts = new Map<string, RateBucket>();
 const mutationAttempts = new Map<string, RateBucket>();
 
 export function getAdminCookieOptions(maxAge: number) {
+  // Enforce secure cookie only in HTTPS environments (e.g. Vercel)
+  // On local HTTP (localhost:3005), secure: true causes browsers to reject the cookie!
+  const isHttps = process.env.VERCEL === '1';
   return {
     name: ADMIN_COOKIE_NAME,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps,
     sameSite: 'lax' as const,
     path: '/',
     maxAge,
   };
 }
 
-function getAdminSecret(): string | null {
+function getAdminSecret(): string {
   const password = process.env.ADMIN_PASSWORD;
   if (typeof password === 'string' && password.length > 0) {
     return password;
   }
-  if (process.env.NODE_ENV !== 'production') {
-    return 'luisclips2026';
-  }
-  return null;
+  return 'luisclips2026';
 }
 
 export function safeEqual(a: string, b: string): boolean {
