@@ -165,10 +165,10 @@ def scrape_videos(username, limit=50):
             except Exception as item_err:
                 raise RuntimeError(f"Dados de vídeo inválidos: {item_err}") from item_err
     except Exception as e:
-        err_msg = str(e).lower()
-        if "does not have any videos posted" in err_msg or "no videos" in err_msg:
-            return []
         raise RuntimeError(f"Falha na recolha de @{username}: {e}") from e
+
+    if not videos:
+        raise RuntimeError(f"@{username}: TikTok não devolveu vídeos; não foi possível verificar as views")
 
     return videos
 
@@ -183,7 +183,8 @@ if __name__ == "__main__":
     try:
         videos = scrape_videos(target_username)
     except Exception as err:
-        if profile.get("videoCount") == 0:
+        err_str = str(err).lower()
+        if profile.get("videoCount") == 0 or "does not have any videos posted" in err_str:
             videos = []
         else:
             print(json.dumps({"error": str(err), "profile": profile}, ensure_ascii=False))
