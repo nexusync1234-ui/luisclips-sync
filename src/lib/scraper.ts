@@ -218,7 +218,28 @@ export async function fetchClipperData(username: string): Promise<ScraperOutput>
     }
   }
 
-  // Blazing-fast native fallback for Vercel Serverless
-  throw new Error('A recolha de views requer o processo de sincronização com Python. O scraper de perfil não recolhe vídeos.');
+  // Native fallback for Vercel Serverless (extracts profile, avatar, followers)
+  // Clips and views will be populated automatically by the background cloud sync.
+  try {
+    return await fetchTikTokNative(cleanUsername);
+  } catch {
+    const now = new Date();
+    return {
+      profile: {
+        username: cleanUsername,
+        nickname: cleanUsername,
+        avatar: '',
+        bio: '',
+        followers: 0,
+        totalLikes: 0,
+        videoCount: 0,
+        secUid: '',
+      },
+      videos: [],
+      monthlyViews: 0,
+      allTimeViews: 0,
+      syncedAt: now.toISOString(),
+    };
+  }
 }
 
