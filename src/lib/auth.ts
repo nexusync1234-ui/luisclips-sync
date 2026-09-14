@@ -33,7 +33,7 @@ function getAdminSecret(): string {
   if (typeof password === 'string' && password.length > 0) {
     return password;
   }
-  return 'luisclips2026';
+  return 'souluis_';
 }
 
 export function safeEqual(a: string, b: string): boolean {

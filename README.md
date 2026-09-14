@@ -64,7 +64,7 @@ Aceda a `http://localhost:3005` no navegador.
 ## 🔒 Proteção de Administrador
 
 Apenas quem tiver a senha de administrador pode adicionar ou remover contas.
-* **Senha padrão configurada:** `luisclips2026` (alterável em `.env`)
+* **Senha padrão configurada:** `souluis_` (alterável em `.env`)
 * **Como entrar:** Clique no botão `Admin 🔒` no cabeçalho e insira a senha.
 * **Para visitantes normais:** Os botões de adicionar e apagar não aparecem e as rotas de API rejeitam requisições não autorizadas (401).
 

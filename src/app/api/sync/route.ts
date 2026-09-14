@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const isDev = process.env.NODE_ENV !== 'production';
-    const adminSecret = process.env.ADMIN_PASSWORD || 'luisclips2026';
+    const adminSecret = process.env.ADMIN_PASSWORD || 'souluis_';
     const hasSecretKey = req.nextUrl.searchParams.get('secret') === adminSecret;
 
     if (!isDev && !hasSecretKey && !verifyAdminMutation(req)) {
