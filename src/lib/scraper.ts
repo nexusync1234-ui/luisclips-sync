@@ -202,8 +202,11 @@ export async function fetchClipperData(username: string): Promise<ScraperOutput>
               return reject(new Error('Invalid JSON from python scraper'));
             }
             const parsed = JSON.parse(stdout.slice(jsonStart, jsonEnd + 1));
-            if (code !== 0 || parsed.error || !parsed.videos?.length) {
-              return reject(new Error(parsed.error || stderr.trim() || 'TikTok não devolveu vídeos verificáveis'));
+            if (code !== 0 || parsed.error) {
+              return reject(new Error(parsed.error || stderr.trim() || 'TikTok não devolveu dados válidos'));
+            }
+            if (!parsed.videos?.length && (parsed.profile?.videoCount || 0) > 0) {
+              return reject(new Error('TikTok não devolveu vídeos verificáveis'));
             }
             resolve(parsed);
           } catch (e: any) {

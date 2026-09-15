@@ -200,6 +200,7 @@ function StreamContent() {
                           src={second.avatar}
                           alt={second.nickname}
                           className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-zinc-500 object-cover shadow-md"
+                          referrerPolicy="no-referrer"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(second.nickname)}&background=27272a&color=f4f4f5`;
                           }}
@@ -239,6 +240,7 @@ function StreamContent() {
                           src={first.avatar}
                           alt={first.nickname}
                           className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-white object-cover shadow-2xl"
+                          referrerPolicy="no-referrer"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(first.nickname)}&background=ffffff&color=000000`;
                           }}
@@ -278,6 +280,7 @@ function StreamContent() {
                           src={third.avatar}
                           alt={third.nickname}
                           className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border border-zinc-600 object-cover shadow-md"
+                          referrerPolicy="no-referrer"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(third.nickname)}&background=27272a&color=f4f4f5`;
                           }}
@@ -357,6 +360,7 @@ function StreamContent() {
                         src={clipper.avatar}
                         alt={clipper.nickname}
                         className="w-8 h-8 rounded-full object-cover border border-zinc-700 flex-shrink-0"
+                        referrerPolicy="no-referrer"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(clipper.nickname)}&background=18181b&color=fafafa`;
                         }}
@@ -409,6 +413,7 @@ function StreamContent() {
                       src={second.avatar}
                       alt={second.nickname}
                       className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-zinc-400 object-cover shadow-xl mb-3"
+                      referrerPolicy="no-referrer"
                     />
                     <h3 className="font-black text-base sm:text-lg text-white truncate max-w-full">
                       {second.nickname}
@@ -439,6 +444,7 @@ function StreamContent() {
                       src={first.avatar}
                       alt={first.nickname}
                       className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white object-cover shadow-2xl mb-3"
+                      referrerPolicy="no-referrer"
                     />
                     <h3 className="font-black text-xl sm:text-2xl text-white truncate max-w-full">
                       {first.nickname}
@@ -469,6 +475,7 @@ function StreamContent() {
                       src={third.avatar}
                       alt={third.nickname}
                       className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-zinc-600 object-cover shadow-xl mb-3"
+                      referrerPolicy="no-referrer"
                     />
                     <h3 className="font-black text-base sm:text-lg text-white truncate max-w-full">
                       {third.nickname}
@@ -537,6 +544,7 @@ function StreamContent() {
                       src={clipper.avatar}
                       alt={clipper.nickname}
                       className="w-10 h-10 rounded-full object-cover border border-zinc-700 flex-shrink-0"
+                      referrerPolicy="no-referrer"
                     />
                     <div className="min-w-0">
                       <div className="font-bold text-sm text-white truncate">

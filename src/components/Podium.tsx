@@ -47,6 +47,7 @@ export default function Podium({ clippers, onSelectClipper }: PodiumProps) {
                   src={second.avatar || '/placeholder-avatar.png'}
                   alt={second.nickname}
                   className="w-20 h-20 rounded-full object-cover border border-zinc-700 shadow-sm"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${second.nickname}&background=18181b&color=fafafa`;
                   }}
@@ -125,6 +126,7 @@ export default function Podium({ clippers, onSelectClipper }: PodiumProps) {
                   src={first.avatar || '/placeholder-avatar.png'}
                   alt={first.nickname}
                   className="w-24 h-24 rounded-full object-cover border-2 border-white shadow-md"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${first.nickname}&background=ffffff&color=000000`;
                   }}
@@ -198,6 +200,7 @@ export default function Podium({ clippers, onSelectClipper }: PodiumProps) {
                   src={third.avatar || '/placeholder-avatar.png'}
                   alt={third.nickname}
                   className="w-20 h-20 rounded-full object-cover border border-zinc-700 shadow-sm"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${third.nickname}&background=18181b&color=fafafa`;
                   }}

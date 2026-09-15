@@ -40,6 +40,7 @@ export default function ClipperDetailModal({
               src={clipper.avatar || '/placeholder-avatar.png'}
               alt={clipper.nickname}
               className="w-14 h-14 rounded-full object-cover border border-zinc-600 shadow-md"
+              referrerPolicy="no-referrer"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${clipper.nickname}&background=18181b&color=fafafa`;
               }}

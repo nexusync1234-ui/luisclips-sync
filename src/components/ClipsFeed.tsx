@@ -100,6 +100,7 @@ export default function ClipsFeed({ clips }: ClipsFeedProps) {
                         src={clip.coverUrl}
                         alt={clip.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        referrerPolicy="no-referrer"
                         onError={(e) => {
                           (e.target as HTMLElement).style.display = 'none';
                         }}
@@ -147,6 +148,7 @@ export default function ClipsFeed({ clips }: ClipsFeedProps) {
                             src={clip.clipperAvatar}
                             alt={clip.clipperNickname || ''}
                             className="w-6 h-6 rounded-full border border-zinc-600 object-cover"
+                            referrerPolicy="no-referrer"
                           />
                         )}
                         <span className="text-xs font-bold text-white drop-shadow truncate max-w-[130px]">

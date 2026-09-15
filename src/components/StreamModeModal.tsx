@@ -205,6 +205,7 @@ export default function StreamModeModal({
                       src={second.avatar}
                       alt={second.nickname}
                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border border-zinc-700 object-cover mb-2"
+                      referrerPolicy="no-referrer"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(second.nickname)}&background=18181b&color=fafafa`;
                       }}
@@ -237,6 +238,7 @@ export default function StreamModeModal({
                       src={first.avatar}
                       alt={first.nickname}
                       className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-white object-cover shadow-xl mb-2"
+                      referrerPolicy="no-referrer"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(first.nickname)}&background=ffffff&color=000000`;
                       }}
@@ -275,6 +277,7 @@ export default function StreamModeModal({
                       src={third.avatar}
                       alt={third.nickname}
                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border border-zinc-700 object-cover mb-2"
+                      referrerPolicy="no-referrer"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(third.nickname)}&background=18181b&color=fafafa`;
                       }}
@@ -330,6 +333,7 @@ export default function StreamModeModal({
                         src={clipper.avatar}
                         alt={clipper.nickname}
                         className="w-9 h-9 rounded-full object-cover border border-zinc-700 flex-shrink-0"
+                        referrerPolicy="no-referrer"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(clipper.nickname)}&background=18181b&color=fafafa`;
                         }}

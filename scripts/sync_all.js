@@ -61,8 +61,11 @@ function scrapeUser(username) {
           return reject(new Error('Invalid output for @' + username));
         }
         const data = JSON.parse(stdout.slice(start, end + 1));
-        if (code !== 0 || data.error || !data.videos?.length) {
-          return reject(new Error(data.error || stderr.trim() || 'Recolha sem vídeos verificáveis'));
+        if (code !== 0 || data.error) {
+          return reject(new Error(data.error || stderr.trim() || 'Recolha sem sucesso'));
+        }
+        if (!data.videos?.length && (data.profile?.videoCount || 0) > 0) {
+          return reject(new Error('Recolha sem vídeos verificáveis'));
         }
         resolve(data);
       } catch (e) {

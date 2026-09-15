@@ -191,6 +191,7 @@ export default function LeaderboardTable({
                           src={clipper.avatar || '/placeholder-avatar.png'}
                           alt={clipper.nickname}
                           className="w-10 h-10 rounded-full object-cover border border-zinc-700"
+                          referrerPolicy="no-referrer"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${clipper.nickname}&background=1f1f23&color=fff`;
                           }}
