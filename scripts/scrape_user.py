@@ -74,28 +74,25 @@ def scrape_profile(username):
         
     return user_data
 
-def scrape_videos(username, limit=50):
+def scrape_videos(username, limit=150):
     videos = []
     
     # Path to local yt-dlp in .venv (Windows or Linux) or system PATH
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     win_bin = os.path.join(base_dir, ".venv", "Scripts", "yt-dlp.exe")
     nix_bin = os.path.join(base_dir, ".venv", "bin", "yt-dlp")
-    if os.path.exists(win_bin):
-        ytdlp_bin = win_bin
-    elif os.path.exists(nix_bin):
-        ytdlp_bin = nix_bin
+    if os.path.exists(win_bin) or os.path.exists(nix_bin):
+        cmd_prefix = [sys.executable, "-m", "yt_dlp"]
     else:
-        ytdlp_bin = "yt-dlp"
+        cmd_prefix = ["yt-dlp"]
         
-    cmd = [
-        ytdlp_bin,
+    cmd = cmd_prefix + [
         "--dump-json",
         "--flat-playlist",
         "--playlist-end", str(limit),
         "--no-warnings",
         "--impersonate", "chrome",
-        "--socket-timeout", "10",
+        "--socket-timeout", "12",
         "--retries", "1",
         f"https://www.tiktok.com/@{username}"
     ]
@@ -104,7 +101,7 @@ def scrape_videos(username, limit=50):
     current_year_month = f"{now.year}{now.month:02d}"
     
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
         if res.returncode != 0:
             err_msg = res.stderr.strip()
             if "does not have any videos posted" in err_msg.lower() or "no videos" in err_msg.lower():
