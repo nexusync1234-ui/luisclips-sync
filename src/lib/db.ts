@@ -66,14 +66,12 @@ function saveLocalStore(store: DatabaseStore) {
 }
 
 export function isNeonConfigured(): boolean {
-  ensureEnvLoaded();
-  const url = process.env.DATABASE_URL || '';
-  return url.startsWith('postgres') && !url.includes('YOUR_PASSWORD') && !url.includes('ep-sample');
+  return true;
 }
 
 let cachedResult: { clippers: Clipper[]; clips: Clip[] } | null = null;
 let lastCacheAt = 0;
-const DB_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache so Neon DB sleeps 90% of the time
+const DB_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes RAM cache
 
 export function invalidateDbCache() {
   cachedResult = null;
@@ -90,79 +88,7 @@ export async function getStoredClippers(forceRefresh = false): Promise<{ clipper
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
 
-  // If Neon is configured, attempt to query Prisma
-  if (isNeonConfigured()) {
-    try {
-      const clippers = await prisma.clipper.findMany({
-        include: {
-          clips: {
-            orderBy: { viewCount: 'desc' },
-          },
-        },
-        orderBy: { monthlyViews: 'desc' },
-      });
-
-      const formattedClippers: Clipper[] = clippers.map((c) => {
-        const mappedClips = c.clips.map((clip) => {
-          const d = new Date(clip.uploadDate);
-          // Strictly September 1st onwards for current month!
-          const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-          return {
-            id: clip.id,
-            clipperId: clip.clipperId,
-            clipperUsername: c.username,
-            clipperNickname: c.nickname,
-            clipperAvatar: c.avatar || '',
-            title: clip.title,
-            url: clip.url,
-            coverUrl: clip.coverUrl || '',
-            viewCount: clip.viewCount,
-            likeCount: clip.likeCount,
-            commentCount: clip.commentCount,
-            repostCount: clip.repostCount,
-            duration: clip.duration,
-            uploadDate: clip.uploadDate.toISOString(),
-            isCurrentMonth,
-          };
-        });
-
-        // Sum views STRICTLY for clips uploaded in the current month (>= 01/09)
-        const septViewsSum = mappedClips
-          .filter((cl) => cl.isCurrentMonth)
-          .reduce((acc, cl) => acc + cl.viewCount, 0);
-
-        const totalClipsViewsSum = mappedClips.reduce((acc, cl) => acc + cl.viewCount, 0);
-
-        const monthlyViews = mappedClips.length > 0 ? septViewsSum : c.monthlyViews;
-        const allTimeViews = mappedClips.length > 0 ? Math.max(totalClipsViewsSum, c.allTimeViews) : c.allTimeViews;
-
-        return {
-          id: c.id,
-          username: c.username,
-          nickname: c.nickname,
-          avatar: c.avatar || '',
-          bio: c.bio || '',
-          followers: c.followers,
-          totalLikes: c.totalLikes,
-          videoCount: c.videoCount,
-          monthlyViews,
-          allTimeViews,
-          lastSyncedAt: c.lastSyncedAt.toISOString(),
-          createdAt: c.createdAt.toISOString(),
-          clips: mappedClips,
-        };
-      });
-
-      const allClips = formattedClippers.flatMap((c) => c.clips || []);
-      cachedResult = { clippers: formattedClippers, clips: allClips };
-      lastCacheAt = nowMs;
-      return cachedResult;
-    } catch (err) {
-      console.warn('Could not read from Neon PostgreSQL, falling back to local store:', err);
-    }
-  }
-
-  // Fallback to GitHub Raw / local JSON store (enriched with clips per clipper)
+  // Primary: Read directly from GitHub Cloud JSON (updated automatically by GitHub Actions)
   try {
     let store: DatabaseStore | null = null;
     try {
@@ -177,7 +103,7 @@ export async function getStoredClippers(forceRefresh = false): Promise<{ clipper
         }
       }
     } catch {
-      // Ignore network error and fall back to local disk file
+      // Fall back to local bundled data/db.json
     }
 
     if (!store) {
