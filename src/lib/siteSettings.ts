@@ -2,6 +2,8 @@ import prisma from './prisma';
 import { isNeonConfigured } from './db';
 
 const memoryStore = new Map<string, string>();
+const lastFetchedAt = new Map<string, number>();
+const SETTINGS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache so Neon DB can sleep
 
 let tableReady = false;
 
@@ -19,18 +21,25 @@ async function ensureTable() {
 }
 
 export async function getSetting(key: string): Promise<string | null> {
+  const now = Date.now();
+  const lastTime = lastFetchedAt.get(key) || 0;
+  if (memoryStore.has(key) && now - lastTime < SETTINGS_CACHE_TTL_MS) {
+    return memoryStore.get(key) ?? null;
+  }
+
   if (isNeonConfigured()) {
     try {
       await ensureTable();
       const rows = await prisma.$queryRaw<Array<{ value: string }>>`
         SELECT "value" FROM "SiteSetting" WHERE "key" = ${key} LIMIT 1
       `;
-      if (rows[0]?.value) {
-        memoryStore.set(key, rows[0].value);
-        return rows[0].value;
-      }
+      const val = rows[0]?.value ?? '';
+      memoryStore.set(key, val);
+      lastFetchedAt.set(key, now);
+      return val || null;
     } catch (err) {
       tableReady = false;
+      lastFetchedAt.set(key, now); // Avoid retrying failed DB on every request
       console.warn('Could not read site setting from Neon:', err);
     }
   }
@@ -40,6 +49,7 @@ export async function getSetting(key: string): Promise<string | null> {
 
 export async function setSetting(key: string, value: string): Promise<void> {
   memoryStore.set(key, value);
+  lastFetchedAt.set(key, Date.now());
 
   if (!isNeonConfigured()) return;
 

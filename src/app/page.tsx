@@ -58,51 +58,15 @@ export default function HomePage() {
     }
   };
 
-  const loadMaintenance = async () => {
-    try {
-      const res = await fetch(`/api/maintenance?t=${Date.now()}`, { cache: 'no-store' });
-      const data = await res.json();
-      if (data.success && data.maintenance) {
-        setMaintenance({
-          enabled: Boolean(data.maintenance.enabled),
-          endsAt: data.maintenance.endsAt || null,
-        });
-      }
-    } catch {
-      return;
-    }
-  };
-
-  const loadAnnouncement = async () => {
-    try {
-      const res = await fetch(`/api/announcement?t=${Date.now()}`, { cache: 'no-store' });
-      const data = await res.json();
-      if (data.success) {
-        setAnnouncement(data.announcement?.message || '');
-      }
-    } catch {
-      return;
-    }
-  };
-
   useEffect(() => {
     loadData();
-    loadMaintenance();
-    loadAnnouncement();
 
-    // Fast status check every 5s for announcements and maintenance
-    const statusInterval = setInterval(() => {
-      loadMaintenance();
-      loadAnnouncement();
-    }, 5000);
-
-    // Auto-refresh views & leaderboard data automatically every 30s
+    // Auto-refresh views, leaderboard, maintenance & announcement every 60s
     const dataInterval = setInterval(() => {
       loadData();
-    }, 30000);
+    }, 60000);
 
     return () => {
-      clearInterval(statusInterval);
       clearInterval(dataInterval);
     };
   }, []);

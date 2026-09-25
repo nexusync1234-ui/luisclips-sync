@@ -71,7 +71,25 @@ export function isNeonConfigured(): boolean {
   return url.startsWith('postgres') && !url.includes('YOUR_PASSWORD') && !url.includes('ep-sample');
 }
 
-export async function getStoredClippers(): Promise<{ clippers: Clipper[]; clips: Clip[] }> {
+let cachedResult: { clippers: Clipper[]; clips: Clip[] } | null = null;
+let lastCacheAt = 0;
+const DB_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache so Neon DB sleeps 90% of the time
+
+export function invalidateDbCache() {
+  cachedResult = null;
+  lastCacheAt = 0;
+}
+
+export async function getStoredClippers(forceRefresh = false): Promise<{ clippers: Clipper[]; clips: Clip[] }> {
+  const nowMs = Date.now();
+  if (!forceRefresh && cachedResult && nowMs - lastCacheAt < DB_CACHE_TTL_MS) {
+    return cachedResult;
+  }
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
   // If Neon is configured, attempt to query Prisma
   if (isNeonConfigured()) {
     try {
@@ -83,10 +101,6 @@ export async function getStoredClippers(): Promise<{ clippers: Clipper[]; clips:
         },
         orderBy: { monthlyViews: 'desc' },
       });
-
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
 
       const formattedClippers: Clipper[] = clippers.map((c) => {
         const mappedClips = c.clips.map((clip) => {
@@ -140,16 +154,75 @@ export async function getStoredClippers(): Promise<{ clippers: Clipper[]; clips:
       });
 
       const allClips = formattedClippers.flatMap((c) => c.clips || []);
-      return { clippers: formattedClippers, clips: allClips };
+      cachedResult = { clippers: formattedClippers, clips: allClips };
+      lastCacheAt = nowMs;
+      return cachedResult;
     } catch (err) {
       console.warn('Could not read from Neon PostgreSQL, falling back to local store:', err);
     }
   }
 
-  // Fallback to local JSON store
+  // Fallback to GitHub Raw / local JSON store (enriched with clips per clipper)
   try {
-    const store = ensureDataDir();
-    return { clippers: store.clippers, clips: store.clips };
+    let store: DatabaseStore | null = null;
+    try {
+      const res = await fetch(
+        `https://raw.githubusercontent.com/nexusync1234-ui/luisclips-sync/main/data/db.json?t=${Math.floor(Date.now() / 60000)}`,
+        { cache: 'no-store' }
+      );
+      if (res.ok) {
+        const remote = await res.json();
+        if (remote && Array.isArray(remote.clippers) && remote.clippers.length > 5) {
+          store = remote;
+        }
+      }
+    } catch {
+      // Ignore network error and fall back to local disk file
+    }
+
+    if (!store) {
+      store = ensureDataDir();
+    }
+
+    const clipsByClipper = new Map<string, Clip[]>();
+    for (const cl of store.clips || []) {
+      const list = clipsByClipper.get(cl.clipperId) || [];
+      list.push(cl);
+      clipsByClipper.set(cl.clipperId, list);
+    }
+
+    const enrichedClippers: Clipper[] = (store.clippers || []).map((c) => {
+      const rawClips = c.clips && c.clips.length > 0 ? c.clips : (clipsByClipper.get(c.id) || []);
+      const mappedClips = rawClips.map((clip) => {
+        const d = parseDateSafe(clip.uploadDate);
+        const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        return {
+          ...clip,
+          clipperId: c.id,
+          clipperUsername: c.username,
+          clipperNickname: c.nickname,
+          clipperAvatar: c.avatar || '',
+          isCurrentMonth,
+        };
+      });
+
+      const septViewsSum = mappedClips
+        .filter((cl) => cl.isCurrentMonth)
+        .reduce((acc, cl) => acc + cl.viewCount, 0);
+      const totalClipsViewsSum = mappedClips.reduce((acc, cl) => acc + cl.viewCount, 0);
+
+      return {
+        ...c,
+        monthlyViews: mappedClips.length > 0 ? septViewsSum : c.monthlyViews,
+        allTimeViews: mappedClips.length > 0 ? Math.max(totalClipsViewsSum, c.allTimeViews) : c.allTimeViews,
+        clips: mappedClips,
+      };
+    });
+
+    const allClips = enrichedClippers.flatMap((c) => c.clips || []);
+    cachedResult = { clippers: enrichedClippers, clips: allClips };
+    lastCacheAt = nowMs;
+    return cachedResult;
   } catch {
     return { clippers: [], clips: [] };
   }
@@ -159,6 +232,7 @@ export async function saveClipperData(
   clipperData: Omit<Clipper, 'id' | 'createdAt'> & { id?: string },
   clips: Clip[]
 ): Promise<Clipper> {
+  invalidateDbCache();
   const clipperId = clipperData.id || `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const createdAt = new Date().toISOString();
 
@@ -298,6 +372,7 @@ export async function saveClipperData(
 }
 
 export async function deleteClipper(username: string): Promise<boolean> {
+  invalidateDbCache();
   // 1. Primary: Delete from Neon PostgreSQL
   if (isNeonConfigured()) {
     try {

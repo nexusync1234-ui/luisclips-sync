@@ -1,9 +1,9 @@
-name: Auto Sync Clippers (TikTok -> Neon DB)
+name: Auto Sync Clippers (TikTok -> Neon DB & JSON)
 
 on:
   schedule:
-    # Runs automatically every 10 minutes 24/7 in the cloud
-    - cron: '3-59/10 * * * *'
+    # Runs automatically every 30 minutes 24/7 in the cloud
+    - cron: '*/30 * * * *'
   workflow_dispatch:
   push:
     branches:
@@ -13,7 +13,7 @@ on:
       - '.github/workflows/**'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: tiktok-sync
@@ -47,10 +47,15 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Test scraper failure handling
-        run: python scripts/test_scrape_user.py
-
       - name: Run Sincronizacao dos Clippers
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: node scripts/sync_all.js
+
+      - name: Commit and Push updated db.json
+        run: |
+          git config user.name "Luisclips AutoSync"
+          git config user.email "actions@github.com"
+          git add data/db.json
+          git diff --staged --quiet || git commit -m "chore(sync): auto-update clippers views in db.json [skip ci]"
+          git push

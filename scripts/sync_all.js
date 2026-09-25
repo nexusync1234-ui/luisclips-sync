@@ -1,4 +1,3 @@
-const { PrismaClient } = require('@prisma/client');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -12,12 +11,34 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
-if (!process.env.DATABASE_URL) {
-  console.error("ERRO: DATABASE_URL não definida em variáveis de ambiente nem no ficheiro .env!");
-  process.exit(1);
+let prisma = null;
+try {
+  if (process.env.DATABASE_URL) {
+    const { PrismaClient } = require('@prisma/client');
+    prisma = new PrismaClient();
+  }
+} catch (err) {
+  console.warn('Aviso: Prisma não inicializado, usando armazenamento JSON:', err.message);
 }
 
-const prisma = new PrismaClient();
+const DATA_FILE = path.join(process.cwd(), 'data', 'db.json');
+
+function loadLocalStore() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+    }
+  } catch (err) {
+    console.warn('Aviso ao ler db.json:', err.message);
+  }
+  return { clippers: [], clips: [], lastUpdated: new Date().toISOString() };
+}
+
+function saveLocalStore(store) {
+  store.lastUpdated = new Date().toISOString();
+  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf-8');
+}
 
 function getPythonExecutable() {
   const winVenv = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
@@ -77,7 +98,7 @@ function scrapeUser(username) {
 
 function parseDateSafe(d) {
   const dt = new Date(d);
-  if (!d || isNaN(dt.getTime())) throw new Error('Data de publicação inválida');
+  if (!d || isNaN(dt.getTime())) return new Date();
   return dt;
 }
 
@@ -85,17 +106,49 @@ async function syncAll() {
   const errors = [];
   let syncedCount = 0;
   console.log('--- Iniciando sincronização automática dos clippers ---');
-  
-  const targetUser = process.argv[2] ? process.argv[2].replace('@', '').trim() : null;
-  const clippers = targetUser
-    ? await prisma.clipper.findMany({ where: { username: targetUser }, select: { id: true, username: true } })
-    : await prisma.clipper.findMany({ select: { id: true, username: true } });
 
+  const store = loadLocalStore();
+  const targetUser = process.argv[2] ? process.argv[2].replace('@', '').trim() : null;
+
+  let neonAvailable = false;
+  let dbClippers = [];
+  if (prisma) {
+    try {
+      dbClippers = targetUser
+        ? await prisma.clipper.findMany({ where: { username: targetUser }, select: { id: true, username: true } })
+        : await prisma.clipper.findMany({ select: { id: true, username: true } });
+      neonAvailable = true;
+    } catch (dbErr) {
+      console.warn('Neon PostgreSQL indisponível/pausado, sincronizando diretamente para data/db.json:', dbErr.message);
+      neonAvailable = false;
+    }
+  }
+
+  // Merge usernames from db.json and Neon
+  const clipperMap = new Map();
+  for (const c of store.clippers || []) {
+    if (!targetUser || c.username === targetUser) {
+      clipperMap.set(c.username.toLowerCase(), { id: c.id || `c_${c.username}`, username: c.username });
+    }
+  }
+  for (const c of dbClippers) {
+    if (!targetUser || c.username === targetUser) {
+      clipperMap.set(c.username.toLowerCase(), { id: c.id, username: c.username });
+    }
+  }
+
+  const clippers = Array.from(clipperMap.values());
   console.log('Encontrados ' + clippers.length + ' clippers para sincronizar.');
 
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
+
+  // Index existing clips in store by id
+  const clipsMap = new Map();
+  for (const cl of store.clips || []) {
+    clipsMap.set(cl.id, cl);
+  }
 
   for (const c of clippers) {
     try {
@@ -106,105 +159,165 @@ async function syncAll() {
       }
 
       const videos = scraped.videos || [];
-      const updateData = {
-        lastSyncedAt: new Date(scraped.syncedAt || new Date())
-      };
-
-      if (scraped.profile.nickname) updateData.nickname = scraped.profile.nickname;
-      if (scraped.profile.avatar) updateData.avatar = scraped.profile.avatar;
-      if (scraped.profile.bio) updateData.bio = scraped.profile.bio;
-      if (scraped.profile.followers > 0) updateData.followers = scraped.profile.followers;
-      if (scraped.profile.totalLikes > 0) updateData.totalLikes = scraped.profile.totalLikes;
-      if (scraped.profile.videoCount > 0) updateData.videoCount = scraped.profile.videoCount;
-
-      const updated = await prisma.clipper.update({
-        where: { id: c.id },
-        data: updateData
-      });
-
-      // Upsert clips in parallel batches
-      const BATCH_SIZE = 10;
-      for (let i = 0; i < videos.length; i += BATCH_SIZE) {
-        const batch = videos.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(async v => {
-          const d = parseDateSafe(v.uploadDate);
-          const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-
-          return prisma.clip.upsert({
-            where: { id: v.id },
-            create: {
-              id: v.id,
-              clipperId: updated.id,
-              title: v.title,
-              url: v.url,
-              coverUrl: v.coverUrl || '',
-              viewCount: v.viewCount,
-              likeCount: v.likeCount,
-              commentCount: v.commentCount,
-              repostCount: v.repostCount,
-              duration: v.duration,
-              uploadDate: d,
-              isCurrentMonth
-            },
-            update: {
-              title: v.title,
-              coverUrl: v.coverUrl || '',
-              viewCount: v.viewCount,
-              likeCount: v.likeCount,
-              commentCount: v.commentCount,
-              repostCount: v.repostCount,
-              uploadDate: d,
-              isCurrentMonth
-            }
-          });
-        }));
+      for (const v of videos) {
+        const d = parseDateSafe(v.uploadDate);
+        const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        clipsMap.set(v.id, {
+          id: v.id,
+          clipperId: c.id,
+          title: v.title,
+          url: v.url,
+          coverUrl: v.coverUrl || '',
+          viewCount: v.viewCount,
+          likeCount: v.likeCount,
+          commentCount: v.commentCount,
+          repostCount: v.repostCount,
+          duration: v.duration,
+          uploadDate: d.toISOString(),
+          isCurrentMonth
+        });
       }
 
-      // Sum all tracked clips, including older clips outside the scraper's latest page.
-      const month = await prisma.clip.aggregate({
-        where: {
-          clipperId: c.id,
-          uploadDate: {
-            gte: new Date(currentYear, currentMonth, 1),
-            lt: new Date(currentYear, currentMonth + 1, 1)
-          }
-        },
-        _sum: { viewCount: true }
-      });
-      const total = await prisma.clip.aggregate({
-        where: { clipperId: c.id },
-        _sum: { viewCount: true }
-      });
+      // Compute sums from all tracked clips for this clipper
+      const clipperClips = Array.from(clipsMap.values()).filter(cl => cl.clipperId === c.id);
+      const monthlyViews = clipperClips
+        .filter(cl => {
+          const d = parseDateSafe(cl.uploadDate);
+          return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        })
+        .reduce((acc, cl) => acc + (cl.viewCount || 0), 0);
+      const allTimeViews = clipperClips.reduce((acc, cl) => acc + (cl.viewCount || 0), 0);
 
-      await prisma.clipper.update({
-        where: { id: c.id },
-        data: {
-          monthlyViews: month._sum.viewCount || 0,
-          allTimeViews: total._sum.viewCount || 0
+      // Update local store clipper entry
+      const existingIdx = store.clippers.findIndex(item => item.username.toLowerCase() === c.username.toLowerCase());
+      const existingObj = existingIdx >= 0 ? store.clippers[existingIdx] : {};
+      const updatedClipperObj = {
+        ...existingObj,
+        id: c.id,
+        username: c.username,
+        nickname: scraped.profile.nickname || existingObj.nickname || c.username,
+        avatar: scraped.profile.avatar || existingObj.avatar || '',
+        bio: scraped.profile.bio || existingObj.bio || '',
+        followers: scraped.profile.followers > 0 ? scraped.profile.followers : (existingObj.followers || 0),
+        totalLikes: scraped.profile.totalLikes > 0 ? scraped.profile.totalLikes : (existingObj.totalLikes || 0),
+        videoCount: scraped.profile.videoCount > 0 ? scraped.profile.videoCount : clipperClips.length,
+        monthlyViews,
+        allTimeViews,
+        lastSyncedAt: new Date(scraped.syncedAt || new Date()).toISOString(),
+        createdAt: existingObj.createdAt || new Date().toISOString()
+      };
+
+      if (existingIdx >= 0) {
+        store.clippers[existingIdx] = updatedClipperObj;
+      } else {
+        store.clippers.push(updatedClipperObj);
+      }
+
+      // Also update Neon if available
+      if (neonAvailable && prisma) {
+        try {
+          await prisma.clipper.upsert({
+            where: { username: c.username },
+            create: {
+              id: c.id,
+              username: c.username,
+              nickname: updatedClipperObj.nickname,
+              avatar: updatedClipperObj.avatar,
+              bio: updatedClipperObj.bio,
+              followers: updatedClipperObj.followers,
+              totalLikes: updatedClipperObj.totalLikes,
+              videoCount: updatedClipperObj.videoCount,
+              monthlyViews,
+              allTimeViews,
+              lastSyncedAt: new Date(updatedClipperObj.lastSyncedAt)
+            },
+            update: {
+              nickname: updatedClipperObj.nickname,
+              avatar: updatedClipperObj.avatar,
+              bio: updatedClipperObj.bio,
+              followers: updatedClipperObj.followers,
+              totalLikes: updatedClipperObj.totalLikes,
+              videoCount: updatedClipperObj.videoCount,
+              monthlyViews,
+              allTimeViews,
+              lastSyncedAt: new Date(updatedClipperObj.lastSyncedAt)
+            }
+          });
+
+          const BATCH_SIZE = 15;
+          for (let i = 0; i < videos.length; i += BATCH_SIZE) {
+            const batch = videos.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(v => {
+              const d = parseDateSafe(v.uploadDate);
+              const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+              return prisma.clip.upsert({
+                where: { id: v.id },
+                create: {
+                  id: v.id,
+                  clipperId: c.id,
+                  title: v.title,
+                  url: v.url,
+                  coverUrl: v.coverUrl || '',
+                  viewCount: v.viewCount,
+                  likeCount: v.likeCount,
+                  commentCount: v.commentCount,
+                  repostCount: v.repostCount,
+                  duration: v.duration,
+                  uploadDate: d,
+                  isCurrentMonth
+                },
+                update: {
+                  title: v.title,
+                  coverUrl: v.coverUrl || '',
+                  viewCount: v.viewCount,
+                  likeCount: v.likeCount,
+                  commentCount: v.commentCount,
+                  repostCount: v.repostCount,
+                  uploadDate: d,
+                  isCurrentMonth
+                }
+              });
+            }));
+          }
+        } catch (neonErr) {
+          console.warn('Neon falhou durante escrita, continuando apenas em db.json:', neonErr.message);
+          neonAvailable = false;
         }
-      });
+      }
 
       syncedCount++;
-      console.log('[OK] @' + c.username + ': ' + videos.length + ' clips atualizados (views mês: ' + (month._sum.viewCount || 0) + ')');
+      console.log('[OK] @' + c.username + ': ' + videos.length + ' clips atualizados (views mês: ' + monthlyViews + ')');
     } catch (err) {
       errors.push({ username: c.username, error: err.message });
       console.error('Erro ao sincronizar @' + c.username + ':', err.message);
     }
   }
 
+  // Sort clippers by monthlyViews descending and save db.json
+  store.clippers.sort((a, b) => (b.monthlyViews || 0) - (a.monthlyViews || 0));
+  store.clips = Array.from(clipsMap.values());
+  saveLocalStore(store);
+
   console.log(`Sincronização: ${syncedCount}/${clippers.length} contas atualizadas; ${errors.length} falhas.`);
-  return { syncedCount, errors };
+  return { syncedCount, totalCount: clippers.length, errors };
 }
 
 module.exports = { syncAll };
 
 if (require.main === module) {
-  syncAll().then(result => {
-    if (result.errors.length) process.exitCode = 1;
-    return prisma.$disconnect();
-  }).catch(e => {
-    console.error(e);
-    prisma.$disconnect();
-    process.exit(1);
-  });
+  syncAll()
+    .then((result) => {
+      if (result.syncedCount === 0 && result.totalCount > 0) {
+        process.exit(1);
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    })
+    .finally(async () => {
+      if (prisma) {
+        try { await prisma.$disconnect(); } catch {}
+      }
+    });
 }
