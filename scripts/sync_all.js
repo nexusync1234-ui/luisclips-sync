@@ -2,13 +2,8 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-if (!process.env.DATABASE_URL) {
-  const envFile = path.join(process.cwd(), '.env');
-  if (fs.existsSync(envFile)) {
-    const content = fs.readFileSync(envFile, 'utf-8');
-    const match = content.match(/DATABASE_URL=["']?([^"'\r\n]+)["']?/);
-    if (match) process.env.DATABASE_URL = match[1];
-  }
+if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('ep-icy-sunset') || process.env.DATABASE_URL.includes('ep-spring-forest')) {
+  process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_9hrzsJp0RiWZ@ep-muddy-cell-b1ttsf0m-pooler.c-5.eu-central-1.aws.neon.tech/neondb?sslmode=require';
 }
 
 let prisma = null;

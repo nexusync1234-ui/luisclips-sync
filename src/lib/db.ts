@@ -66,12 +66,14 @@ function saveLocalStore(store: DatabaseStore) {
 }
 
 export function isNeonConfigured(): boolean {
-  return true;
+  ensureEnvLoaded();
+  const url = process.env.DATABASE_URL || '';
+  return url.startsWith('postgres') && !url.includes('YOUR_PASSWORD') && !url.includes('ep-sample');
 }
 
 let cachedResult: { clippers: Clipper[]; clips: Clip[] } | null = null;
 let lastCacheAt = 0;
-const DB_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes RAM cache
+const DB_CACHE_TTL_MS = 10 * 60 * 1000;
 
 export function invalidateDbCache() {
   cachedResult = null;
@@ -88,7 +90,73 @@ export async function getStoredClippers(forceRefresh = false): Promise<{ clipper
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
 
-  // Primary: Read directly from GitHub Cloud JSON (updated automatically by GitHub Actions)
+  // 1. Primary: Query Neon PostgreSQL
+  if (isNeonConfigured()) {
+    try {
+      const clippers = await prisma.clipper.findMany({
+        include: {
+          clips: {
+            orderBy: { viewCount: 'desc' },
+          },
+        },
+        orderBy: { monthlyViews: 'desc' },
+      });
+
+      const formattedClippers: Clipper[] = clippers.map((c) => {
+        const mappedClips = c.clips.map((clip) => {
+          const d = new Date(clip.uploadDate);
+          const isCurrentMonth = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+          return {
+            id: clip.id,
+            clipperId: clip.clipperId,
+            clipperUsername: c.username,
+            clipperNickname: c.nickname,
+            clipperAvatar: c.avatar || '',
+            title: clip.title,
+            url: clip.url,
+            coverUrl: clip.coverUrl || '',
+            viewCount: clip.viewCount,
+            likeCount: clip.likeCount,
+            commentCount: clip.commentCount,
+            repostCount: clip.repostCount,
+            duration: clip.duration,
+            uploadDate: clip.uploadDate.toISOString(),
+            isCurrentMonth,
+          };
+        });
+
+        const septViewsSum = mappedClips
+          .filter((cl) => cl.isCurrentMonth)
+          .reduce((acc, cl) => acc + cl.viewCount, 0);
+        const totalClipsViewsSum = mappedClips.reduce((acc, cl) => acc + cl.viewCount, 0);
+
+        return {
+          id: c.id,
+          username: c.username,
+          nickname: c.nickname,
+          avatar: c.avatar || '',
+          bio: c.bio || '',
+          followers: c.followers,
+          totalLikes: c.totalLikes,
+          videoCount: c.videoCount,
+          monthlyViews: mappedClips.length > 0 ? septViewsSum : c.monthlyViews,
+          allTimeViews: mappedClips.length > 0 ? Math.max(totalClipsViewsSum, c.allTimeViews) : c.allTimeViews,
+          lastSyncedAt: c.lastSyncedAt.toISOString(),
+          createdAt: c.createdAt.toISOString(),
+          clips: mappedClips,
+        };
+      });
+
+      const allClips = formattedClippers.flatMap((c) => c.clips || []);
+      cachedResult = { clippers: formattedClippers, clips: allClips };
+      lastCacheAt = nowMs;
+      return cachedResult;
+    } catch (err) {
+      console.warn('Could not read from Neon PostgreSQL, falling back to store:', err);
+    }
+  }
+
+  // 2. Fallback: GitHub Cloud JSON / local JSON store
   try {
     let store: DatabaseStore | null = null;
     try {
