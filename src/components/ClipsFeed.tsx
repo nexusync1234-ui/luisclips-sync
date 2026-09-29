@@ -8,14 +8,50 @@ interface ClipsFeedProps {
   clips: Clip[];
 }
 
-export default function ClipsFeed({ clips }: ClipsFeedProps) {
-  const [monthOnly, setMonthOnly] = useState(true);
+type TimeFilter = 'day' | 'week' | 'month' | 'all';
 
-  const filteredClips = monthOnly
-    ? clips.filter((c) => c.isCurrentMonth)
-    : clips;
+function parseDateSafe(raw?: string | Date | null): Date {
+  if (!raw) return new Date(0);
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? new Date(0) : raw;
+  if (typeof raw === 'string' && /^\d{8}$/.test(raw)) {
+    const y = parseInt(raw.slice(0, 4), 10);
+    const m = parseInt(raw.slice(4, 6), 10) - 1;
+    const d = parseInt(raw.slice(6, 8), 10);
+    return new Date(Date.UTC(y, m, d));
+  }
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? new Date(0) : d;
+}
+
+export default function ClipsFeed({ clips }: ClipsFeedProps) {
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('month');
+
+  const now = new Date();
+  const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const filteredClips = clips.filter((clip) => {
+    if (timeFilter === 'all') return true;
+    const d = parseDateSafe(clip.uploadDate);
+    if (timeFilter === 'day') {
+      return d >= twoDaysAgo;
+    }
+    if (timeFilter === 'week') {
+      return d >= oneWeekAgo;
+    }
+    if (timeFilter === 'month') {
+      return clip.isCurrentMonth || (d.getFullYear() === currentYear && d.getMonth() === currentMonth);
+    }
+    return true;
+  });
 
   const sortedClips = [...filteredClips].sort((a, b) => b.viewCount - a.viewCount);
+
+  const dayCount = clips.filter((c) => parseDateSafe(c.uploadDate) >= twoDaysAgo).length;
+  const weekCount = clips.filter((c) => parseDateSafe(c.uploadDate) >= oneWeekAgo).length;
+  const monthCount = clips.filter((c) => c.isCurrentMonth || (parseDateSafe(c.uploadDate).getFullYear() === currentYear && parseDateSafe(c.uploadDate).getMonth() === currentMonth)).length;
 
   const formatNumber = (num: number) => {
     if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
@@ -26,7 +62,6 @@ export default function ClipsFeed({ clips }: ClipsFeedProps) {
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '';
     if (dateStr.length === 8) {
-      // YYYYMMDD
       const y = dateStr.slice(0, 4);
       const m = dateStr.slice(4, 6);
       const d = dateStr.slice(6, 8);
@@ -35,10 +70,17 @@ export default function ClipsFeed({ clips }: ClipsFeedProps) {
     return new Date(dateStr).toLocaleDateString('pt-PT');
   };
 
+  const getTopBadgeLabel = () => {
+    if (timeFilter === 'day') return 'Maior Clipe do Dia';
+    if (timeFilter === 'week') return 'Maior Clipe da Semana';
+    if (timeFilter === 'month') return 'Maior Clipe do Mês';
+    return 'Maior Clipe Viral';
+  };
+
   return (
     <section className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
               <Film className="w-5 h-5 text-white" />
@@ -49,22 +91,42 @@ export default function ClipsFeed({ clips }: ClipsFeedProps) {
             </p>
           </div>
 
-          {/* Filter Toggle */}
-          <div className="bg-[#141418] p-1 rounded-xl border border-zinc-800 flex items-center self-start sm:self-auto">
+          {/* Filter Tabs requested by Luís Ferreira: Dia, Semana, Mês, Todos */}
+          <div className="bg-[#141418] p-1 rounded-xl border border-zinc-800 flex items-center gap-1 self-start lg:self-auto overflow-x-auto max-w-full">
             <button
-              onClick={() => setMonthOnly(true)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                monthOnly
+              onClick={() => setTimeFilter('day')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                timeFilter === 'day'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Clipes Deste Mês ({clips.filter((c) => c.isCurrentMonth).length})
+              Do Dia ({dayCount})
             </button>
             <button
-              onClick={() => setMonthOnly(false)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                !monthOnly
+              onClick={() => setTimeFilter('week')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                timeFilter === 'week'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Semana ({weekCount})
+            </button>
+            <button
+              onClick={() => setTimeFilter('month')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                timeFilter === 'month'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Do Mês ({monthCount})
+            </button>
+            <button
+              onClick={() => setTimeFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                timeFilter === 'all'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
@@ -118,7 +180,7 @@ export default function ClipsFeed({ clips }: ClipsFeedProps) {
                     {isTopClip && (
                       <div className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-white text-black text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
                         <Sparkles className="w-3 h-3" />
-                        Maior Clipe do Mês
+                        {getTopBadgeLabel()}
                       </div>
                     )}
 
