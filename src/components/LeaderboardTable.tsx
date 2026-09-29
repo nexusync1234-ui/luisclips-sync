@@ -34,7 +34,23 @@ export default function LeaderboardTable({
   isAdmin = false,
 }: LeaderboardTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'month' | 'avgViews' | 'allTime'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'avgViews' | 'allTime'>('month');
+
+  const getClipperPeriodViews = (c: Clipper, mode: 'month' | 'week' | 'day' | 'avgViews' | 'allTime'): number => {
+    if (mode === 'allTime') return c.allTimeViews;
+    if (mode === 'month') return c.monthlyViews;
+    const now = new Date();
+    const threshold = mode === 'day'
+      ? new Date(now.getTime() - 48 * 60 * 60 * 1000)
+      : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const clips = c.clips || [];
+    return clips
+      .filter((clip) => {
+        const d = new Date(clip.uploadDate);
+        return !isNaN(d.getTime()) && d >= threshold;
+      })
+      .reduce((acc, clip) => acc + clip.viewCount, 0);
+  };
 
   // Sort based on viewMode
   const sorted = [...clippers].sort((a, b) => {
@@ -43,8 +59,9 @@ export default function LeaderboardTable({
       const avgB = getClipperAvgViews(b, true);
       return avgB - avgA;
     }
-    if (viewMode === 'allTime') return b.allTimeViews - a.allTimeViews;
-    return b.monthlyViews - a.monthlyViews;
+    const viewsA = getClipperPeriodViews(a, viewMode);
+    const viewsB = getClipperPeriodViews(b, viewMode);
+    return viewsB - viewsA;
   });
 
   // Filter by search
@@ -55,7 +72,7 @@ export default function LeaderboardTable({
   );
 
   const maxViews = Math.max(
-    ...clippers.map((c) => (viewMode === 'allTime' ? c.allTimeViews : c.monthlyViews)),
+    ...clippers.map((c) => getClipperPeriodViews(c, viewMode)),
     1
   );
 
@@ -74,11 +91,11 @@ export default function LeaderboardTable({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* View / Sort Mode Toggle */}
+          {/* View / Sort Mode Toggle: Dia, Semana, Mês, Média, Geral */}
           <div className="bg-[#141418] p-1 rounded-xl border border-zinc-800 flex items-center flex-wrap gap-1">
             <button
               onClick={() => setViewMode('month')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                 viewMode === 'month'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-zinc-400 hover:text-white'
@@ -87,19 +104,39 @@ export default function LeaderboardTable({
               Mês Atual (Live)
             </button>
             <button
+              onClick={() => setViewMode('week')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                viewMode === 'week'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Semana
+            </button>
+            <button
+              onClick={() => setViewMode('day')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                viewMode === 'day'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Hoje (24h)
+            </button>
+            <button
               onClick={() => setViewMode('avgViews')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 viewMode === 'avgViews'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
               <Flame className="w-3.5 h-3.5" />
-              Maior Média / TikTok
+              Maior Média
             </button>
             <button
               onClick={() => setViewMode('allTime')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                 viewMode === 'allTime'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-zinc-400 hover:text-white'
@@ -131,7 +168,13 @@ export default function LeaderboardTable({
               <th scope="col" className="px-4 sm:px-5 py-3 text-center font-bold">#</th>
               <th scope="col" className="px-4 sm:px-5 py-3 font-bold">Clipper</th>
               <th scope="col" className="px-4 sm:px-5 py-3 font-bold">
-                {viewMode === 'allTime' ? 'Views Totais' : 'Views no Mês'}
+                {viewMode === 'allTime'
+                  ? 'Views Totais'
+                  : viewMode === 'week'
+                  ? 'Views na Semana'
+                  : viewMode === 'day'
+                  ? 'Views Hoje (24h)'
+                  : 'Views no Mês'}
               </th>
               <th scope="col" className="px-4 sm:px-5 py-3 font-bold">
                 <span className="flex items-center gap-1 text-white">
@@ -154,7 +197,7 @@ export default function LeaderboardTable({
               </tr>
             ) : (
               filtered.map((clipper, index) => {
-                const currentViews = viewMode === 'allTime' ? clipper.allTimeViews : clipper.monthlyViews;
+                const currentViews = getClipperPeriodViews(clipper, viewMode);
                 const avgViews = getClipperAvgViews(clipper, viewMode !== 'allTime');
                 const viewPercentage = Math.min(100, Math.round((currentViews / maxViews) * 100));
                 const isWinner = index === 0;
